@@ -10,12 +10,12 @@
    ========================================================= */
 
 export const FIREBASE = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyC6i7WceIuIVVPecCwwHYVRC9Q_KQmkG7k",
+  authDomain: "mica-app-1b9a4.firebaseapp.com",
+  projectId: "mica-app-1b9a4",
+  storageBucket: "mica-app-1b9a4.firebasestorage.app",
+  messagingSenderId: "98396085041",
+  appId: "1:98396085041:web:1efc153ea51ce3f8ce2e10"
 };
 
 /* Socios de MICA. El id no se cambia nunca: los datos lo usan. */
