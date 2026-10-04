@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// MICA · Gestión de proyectos — reglas de seguridad de Firestore.
+// Solo pueden leer y escribir las cuatro cuentas de Google de los socios,
+// con el correo verificado. Si se agrega o saca un socio, cambiar la lista
+// acá y también en js/config.js, y volver a publicar estas reglas.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autorizado() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'juliomonti91@gmail.com',
+          'jplaza.mica@gmail.com',
+          'jgildeza.mica@gmail.com',
+          'josemariamonti@gmail.com'
+        ];
+    }
+
+    match /{coleccion}/{documento} {
+      allow read, write: if autorizado()
+        && coleccion in ['proyectos', 'movimientos', 'proveedores', 'cuentas', 'avances', 'certificados', 'fichas', 'papelera', 'config'];
+    }
+  }
+}
