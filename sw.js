@@ -1,6 +1,6 @@
 /* Service worker mínimo: primero la red, y si no hay señal, la última copia guardada.
    Así cada publicación nueva en GitHub Pages se ve al instante. */
-const CACHE = "mica-v6";
+const CACHE = "mica-v8";
 self.addEventListener("install", e => self.skipWaiting());
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", e => {

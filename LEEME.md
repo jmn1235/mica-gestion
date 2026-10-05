@@ -221,6 +221,13 @@ La IA **propone** y un socio **confirma**: nada se guarda sin revisar el formula
 3. Si una actualización agrega colecciones, hay que volver a publicar `firestore.rules` (paso 3.5). Se avisa en cada entrega.
 4. Los datos cargados no se tocan.
 
+## Permisos y aprobaciones
+
+- **Administrador:** el titular de Magna (`TITULAR_MAGNA` en `js/config.js`, hoy Julio). Carga, modifica y configura todo.
+- **Operativo:** ve y exporta todo; propone gastos de obra (altas, cambios y bajas) y avance físico. Lo propuesto queda en la colección `solicitudes` y no se aplica hasta que el administrador lo aprueba en **Aprobaciones**.
+- **Veedor:** ve y exporta todo, no modifica.
+- Los permisos se cambian en **Ajustes → Usuarios y permisos** y se guardan en `config/permisos`. Las reglas de Firestore los aplican en la base: aunque alguien manipule la pantalla, un operativo solo puede crear pedidos a su nombre y un veedor no puede escribir nada.
+
 ## Probar sin Firebase
 
 Mientras `js/config.js` tenga la configuración vacía, la app funciona en **modo local**: se elige el socio en pantalla y los datos quedan solo en ese navegador. En **Ajustes → Datos y respaldo** se pueden cargar datos de ejemplo para recorrerla. Para abrirla en la computadora hace falta un servidor (los módulos de JavaScript no corren abriendo el archivo con doble clic), por ejemplo desde la carpeta: `python3 -m http.server 8000` y luego <http://localhost:8000>.
@@ -228,7 +235,8 @@ Mientras `js/config.js` tenga la configuración vacía, la app funciona en **mod
 ## Agregar o cambiar un socio
 
 1. En `js/config.js`, editar `SOCIOS` (el `id` no se cambia nunca) y `USUARIOS` (correo en minúsculas y socio).
-2. En `firestore.rules`, actualizar la lista de correos y volver a **Publicar** las reglas en Firebase.
+2. En `firestore.rules`, actualizar la lista `socios()` (correo en minúsculas y id del socio) y volver a **Publicar** las reglas en Firebase.
+4. El permiso de la persona nueva (operativo o veedor) se elige en **Ajustes → Usuarios y permisos**. Por defecto entra como operativo.
 3. Guardar `js/config.js` en GitHub.
 
 ## Cómo está armada la carpeta
@@ -311,3 +319,11 @@ js/vistas/              una pantalla por archivo
 - Costo por unidad = costo ÷ cantidad ejecutada (si no hay avance cargado, la cantidad cotizada).
 - Desvío = costo real del ítem ÷ costo directo cotizado − 1. Margen = 1 − costo total ÷ precio de venta.
 - Contratos en pesos: lo cotizado se pasa a dólares al promedio de los dólares de los gastos del proyecto.
+
+## Guía de uso
+
+La guía para los socios está en `ayuda.html` (también se abre desde el menú: **Guía de uso**). Se publica junto con el resto de los archivos.
+
+## Íconos
+
+La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`) y como ícono de la app en el celular (`img/icon-192.png`, `img/icon-512.png`, `img/icon-maskable-512.png`, `img/apple-touch-icon.png`). Si la app ya estaba instalada en el celular, hay que desinstalarla y volver a instalarla para que tome el ícono nuevo.

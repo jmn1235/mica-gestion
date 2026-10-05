@@ -1,26 +1,106 @@
 rules_version = '2';
 
-// MICA · Gestión de proyectos — reglas de seguridad de Firestore.
-// Solo pueden leer y escribir las cuatro cuentas de Google de los socios,
-// con el correo verificado. Si se agrega o saca un socio, cambiar la lista
-// acá y también en js/config.js, y volver a publicar estas reglas.
+// MICA · Gestión de proyectos — reglas de seguridad de Firestore (versión 7, con aprobaciones).
+//
+// - Leen todo las cuatro cuentas de Google de los socios, con el correo verificado.
+// - Escribe todo solo el administrador (Julio, titular de Magna).
+// - Los operativos solo crean pedidos (colección "solicitudes") a su nombre:
+//   gastos de obra y avance físico de los proyectos que tienen habilitados.
+//   Nada se aplica hasta que el administrador lo aprueba desde la app.
+// - Los veedores solo leen.
+// El permiso de cada socio se guarda en config/permisos y lo cambia el administrador.
+// Si se agrega o saca un socio, cambiar la lista acá y también en js/config.js,
+// y volver a publicar estas reglas.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function socios() {
+      return {
+        'juliomonti91@gmail.com': 'julio',
+        'jplaza.mica@gmail.com': 'jorge',
+        'jgildeza.mica@gmail.com': 'jeremias',
+        'josemariamonti@gmail.com': 'jose'
+      };
+    }
+    function correo() { return request.auth.token.email.lower(); }
     function autorizado() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() in [
-          'juliomonti91@gmail.com',
-          'jplaza.mica@gmail.com',
-          'jgildeza.mica@gmail.com',
-          'josemariamonti@gmail.com'
-        ];
+        && correo() in socios();
+    }
+    function socio() { return socios().get(correo(), ''); }
+    function esAdmin() { return autorizado() && socio() == 'julio'; }
+
+    function rutaPermisos() { return /databases/$(database)/documents/config/permisos; }
+    function permiso() {
+      return exists(rutaPermisos())
+        ? get(rutaPermisos()).data.get('usuarios', {}).get(socio(), {})
+        : {};
+    }
+    function esOperativo() {
+      return autorizado() && !esAdmin() && permiso().get('rol', 'operativo') == 'operativo';
+    }
+    // Un proyecto existente, no cerrado, y habilitado para el operativo.
+    function proyectoPermitido(pid) {
+      let ps = permiso().get('proyectos', 'todos');
+      let ruta = /databases/$(database)/documents/proyectos/$(pid);
+      return pid is string
+        && !(pid in ['MAGNA', 'RESERVA', 'ESTRUCTURA'])
+        && exists(ruta)
+        && get(ruta).data.get('estado', '') != 'cerrado'
+        && (ps == 'todos' || (ps is list && pid in ps));
+    }
+    function datosValidos(d) {
+      return d.datos is map && (d.coleccion == 'movimientos'
+        ? d.datos.get('tipo', '') == 'egreso' && d.datos.get('clase', '') == 'gasto'
+            && d.datos.get('montoARS', 0) is number && proyectoPermitido(d.datos.get('bolsillo', ''))
+        : d.datos.get('proyecto', '') is string && proyectoPermitido(d.datos.get('proyecto', ''))
+            && d.docId == d.datos.get('proyecto', '') + '__' + d.datos.get('mes', ''));
+    }
+    // Lo que se pide cambiar o borrar tiene que ser un gasto (o avance) de un proyecto habilitado.
+    function objetivoValido(d) {
+      let ruta = /databases/$(database)/documents/$(d.coleccion)/$(d.docId);
+      return exists(ruta) && (d.coleccion == 'movimientos'
+        ? get(ruta).data.get('tipo', '') == 'egreso' && get(ruta).data.get('clase', '') == 'gasto'
+            && proyectoPermitido(get(ruta).data.get('bolsillo', ''))
+        : proyectoPermitido(get(ruta).data.get('proyecto', '')));
+    }
+    function solicitudValida(d) {
+      return d.autor == socio()
+        && d.estado == 'pendiente'
+        && d.accion in ['alta', 'modificacion', 'baja']
+        && d.coleccion in ['movimientos', 'avances']
+        && d.docId is string && d.docId.size() > 0 && d.docId.size() < 120
+        && (d.accion == 'baja' || datosValidos(d))
+        && (d.accion != 'alta' || d.coleccion == 'avances' || !exists(/databases/$(database)/documents/movimientos/$(d.docId)))
+        && (d.accion == 'alta' || objetivoValido(d))
+        && !('resueltoPor' in d) && !('aprobadoPor' in d);
+    }
+
+    match /solicitudes/{id} {
+      allow read: if autorizado();
+      allow create: if esAdmin() || (esOperativo() && solicitudValida(request.resource.data));
+      allow update: if esAdmin() || (
+        esOperativo()
+        && resource.data.autor == socio()
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.autor == socio()
+        && (
+          // Cancelar el propio pedido.
+          (request.resource.data.estado == 'cancelada'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'canceladoEl', 'modificado']))
+          // Corregir el propio pedido mientras siga pendiente.
+          || solicitudValida(request.resource.data)
+        )
+      );
+      allow delete: if esAdmin();
     }
 
     match /{coleccion}/{documento} {
-      allow read, write: if autorizado()
+      allow read: if autorizado()
+        && coleccion in ['proyectos', 'movimientos', 'proveedores', 'cuentas', 'avances', 'certificados', 'fichas', 'papelera', 'config'];
+      allow write: if esAdmin()
         && coleccion in ['proyectos', 'movimientos', 'proveedores', 'cuentas', 'avances', 'certificados', 'fichas', 'papelera', 'config'];
     }
   }
