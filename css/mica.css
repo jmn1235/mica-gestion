@@ -409,9 +409,10 @@ details summary::-webkit-details-marker { color: var(--gris); }
 @media (max-width: 760px) {
   body { font-size: 14.5px; }
   .lateral { display: none; }
-  .contenido { margin-left: 0; padding-top: 56px; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  /* En iPhone con muesca la barra suma el alto de la zona del reloj (safe-area), así el logo y el selector quedan sobre el rojo. */
+  .contenido { margin-left: 0; padding-top: calc(56px + env(safe-area-inset-top)); padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .barra-movil {
-    display: flex; position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 30;
+    display: flex; position: fixed; top: 0; left: 0; right: 0; height: calc(56px + env(safe-area-inset-top)); z-index: 30; box-sizing: border-box;
     background: var(--rojo); align-items: center; gap: 12px; padding: 0 12px 0 16px;
     padding-top: env(safe-area-inset-top);
   }
@@ -488,3 +489,50 @@ details summary::-webkit-details-marker { color: var(--gris); }
   body { background: #fff; }
   .panel, .kpi { box-shadow: none; }
 }
+
+
+/* ===== Permisos: lo que solo hace el administrador no se muestra a operativos ni veedores.
+   (La base de datos igual lo rechaza: esto evita botones que no sirven.) ===== */
+body.rol-operativo a[href^="#cargar/nuevo/"]:not([href="#cargar/nuevo/egreso/gasto"]),
+body.rol-veedor a[href^="#cargar"],
+body:not(.rol-admin) a[href^="#ajustes/proyectos/"],
+body:not(.rol-admin) a[href^="#certificados/nuevo"],
+body:not(.rol-admin) a[href$="/editar"],
+body:not(.rol-admin) #d-borrar, body:not(.rol-admin) #d-cobro, body:not(.rol-admin) [data-ed], body:not(.rol-admin) [data-del],
+body:not(.rol-admin) #pr-importar, body:not(.rol-admin) #pr-nuevo, body:not(.rol-admin) #pr-ventana, body:not(.rol-admin) #pr-ventana-aviso,
+body:not(.rol-admin) #lb-congelar, body:not(.rol-admin) #lb-rehacer,
+body:not(.rol-admin) [data-registrar], body:not(.rol-admin) #lq-cerrar, body:not(.rol-admin) #lq-reabrir, body:not(.rol-admin) #lq-todo,
+body:not(.rol-admin) #so-hon-nuevo,
+body:not(.rol-admin) #bc-importar, body:not(.rol-admin) #bc-importar2, body:not(.rol-admin) #bc-nueva, body:not(.rol-admin) #bc-nueva2,
+body:not(.rol-admin) #fd-editar, body:not(.rol-admin) #fd-quitar,
+body:not(.rol-admin) .modal form:not(.abierto-a-todos) button[type="submit"], body:not(.rol-admin) .modal form:not(.abierto-a-todos) .btn-peligro { display: none !important; }
+body:not(.rol-admin) .modal form:not(.abierto-a-todos) input, body:not(.rol-admin) .modal form:not(.abierto-a-todos) select, body:not(.rol-admin) .modal form:not(.abierto-a-todos) textarea { pointer-events: none; background: var(--fondo); }
+
+.rol-chip { display: inline-block; margin-left: 4px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 10px; background: rgba(255,255,255,.16); color: inherit; vertical-align: 1px; }
+
+/* ===== Aprobaciones ===== */
+.sol-lista { display: grid; gap: 10px; }
+.sol { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 16px; border: 1px solid var(--linea); border-radius: var(--radio); background: var(--panel); }
+.sol:not(:has(.sol-check)) { grid-template-columns: minmax(0, 1fr) auto; }
+.sol-check { padding-top: 2px; }
+.sol-check input { width: 18px; height: 18px; accent-color: var(--negro); }
+.sol-cab { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.sol-tit { font-weight: 600; overflow-wrap: anywhere; }
+.sol-sub, .sol-meta { font-size: 12.5px; color: var(--tinta-2); margin-top: 2px; overflow-wrap: anywhere; }
+.sol-motivo { font-size: 13px; margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: var(--ambar-fondo); color: var(--ambar); }
+.sol-conflicto { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-top: 8px; color: var(--ambar); }
+.sol-conflicto svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.sol-der { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+.sol-acc { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+tr.cambia td { background: var(--ambar-fondo); }
+.us-fila { border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px 16px 14px; margin: 0; min-width: 0; }
+.us-fila legend { padding: 0 6px; }
+.us-fila [data-proys] { display: grid; gap: 6px; }
+@media (max-width: 760px) {
+  .sol, .sol:not(:has(.sol-check)) { grid-template-columns: minmax(0, 1fr); }
+  .sol:has(.sol-check) { grid-template-columns: auto minmax(0, 1fr); }
+  .sol:has(.sol-check) .sol-der { grid-column: 2; }
+  .sol-der { align-items: flex-start; text-align: left; }
+  .sol-acc { justify-content: flex-start; }
+}
+@media (max-width: 760px) { #av-guardar { white-space: normal; text-align: center; max-width: 100%; } }

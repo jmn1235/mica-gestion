@@ -6,17 +6,27 @@
    La app siempre lee de S y escribe con guardar()/borrar().
    ========================================================= */
 
-export const COLS = ["proyectos", "movimientos", "proveedores", "cuentas", "avances", "certificados", "fichas", "papelera"];
+export const COLS = ["proyectos", "movimientos", "proveedores", "cuentas", "avances", "certificados", "fichas", "papelera", "solicitudes"];
 
 export const S = {
-  proyectos: [], movimientos: [], proveedores: [], cuentas: [], avances: [], certificados: [], fichas: [], papelera: [],
+  proyectos: [], movimientos: [], proveedores: [], cuentas: [], avances: [], certificados: [], fichas: [], papelera: [], solicitudes: [],
   config: {}               // documentos de la colección config, por id
 };
 
 export const estado = { modo: "local", listo: false, error: "", denegadas: new Set() };
 
 const LS_KEY = "mica_datos_v1";
-const PREFIJO = { proyectos: "p", movimientos: "m", proveedores: "pr", cuentas: "c", avances: "av", certificados: "ce", fichas: "fi", papelera: "t" };
+const PREFIJO = { proyectos: "p", movimientos: "m", proveedores: "pr", cuentas: "c", avances: "av", certificados: "ce", fichas: "fi", papelera: "t", solicitudes: "so" };
+export const prefijo = col => PREFIJO[col] || "x";
+
+/* Guardia de escritura: la fija permisos.js según el rol del usuario.
+   Es una segunda barrera en la pantalla; la que manda son las reglas de Firestore. */
+let guardia = () => true;
+let modoSistema = 0;
+export function fijarGuardia(fn) { guardia = fn; }
+/* Escrituras propias de la app (datos iniciales, ejemplo): no pasan por la guardia. */
+export function comoSistema(fn) { modoSistema++; try { return fn(); } finally { modoSistema--; } }
+const permitido = col => modoSistema > 0 || guardia(col) !== false;
 let fb = null;
 const oyentes = new Set();
 
@@ -93,6 +103,7 @@ function errorNube(e) {
 
 /* ---------- escritura ---------- */
 export function guardar(col, obj) {
+  if (!permitido(col)) return null;
   if (!obj.id) obj.id = nuevoId(PREFIJO[col] || "x");
   obj.modificado = new Date().toISOString();
   const datos = limpio(obj);
@@ -110,6 +121,7 @@ export function guardar(col, obj) {
 }
 
 export function borrar(col, id) {
+  if (!permitido(col)) return;
   if (estado.modo === "nube") {
     fb.f.deleteDoc(fb.f.doc(fb.db, col, id)).catch(errorNube);
   } else {
@@ -119,6 +131,7 @@ export function borrar(col, id) {
 }
 
 export function guardarConfig(id, datos) {
+  if (!permitido("config")) return;
   const d = limpio(datos);
   if (estado.modo === "nube") {
     fb.f.setDoc(fb.f.doc(fb.db, "config", id), d, { merge: true }).catch(errorNube);
@@ -130,6 +143,7 @@ export function guardarConfig(id, datos) {
 
 /* Lo borrado se guarda en la papelera con quién y cuándo, y se puede restaurar. */
 export function mandarAPapelera(col, obj, quien) {
+  if (!permitido(col)) return;
   guardar("papelera", { col, docId: obj.id, datos: limpio(obj), borradoEl: new Date().toISOString(), por: quien || "" });
   borrar(col, obj.id);
 }
@@ -141,6 +155,7 @@ export function restaurar(t) {
 
 /* Reemplaza todos los datos (restaurar un respaldo). */
 export async function reemplazarTodo(d) {
+  if (!permitido("config")) return;
   if (estado.modo === "nube") {
     const { writeBatch, doc } = fb.f;
     const ops = [];

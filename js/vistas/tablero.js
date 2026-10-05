@@ -6,6 +6,7 @@ import { app, fijarCtx } from "../contexto.js";
 import * as M from "../modelo.js";
 import * as P from "../presupuesto.js";
 import * as C from "../certificados.js";
+import * as PER from "../permisos.js";
 import { $, $$, esc, num, fmtUSD, fmtARS, fmtPct, fmtMoneda, fmtCant, fmtFecha, mesLabel, hoyISO, cabecera, ICONOS } from "../ui.js";
 import { barrasAgrupadas, barrasHorizontales } from "../graficos.js";
 
@@ -35,7 +36,8 @@ function tableroProyecto(el, p) {
   const estado = (M.ESTADOS_PROYECTO.find(e => e.id === p.estado) || {}).nombre || "";
   const sub = [p.cliente, p.ubicacion].filter(Boolean).map(esc).join(" · ") + (estado ? ` · <span class="tag${p.estado === "activo" ? " tag-ok" : ""}">${esc(estado)}</span>` : "");
   let h = cabecera(p.codigo || "Proyecto", p.nombre, sub,
-    `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Cargar</a><a class="btn btn-sec btn-sec-escritorio" href="#movimientos">Movimientos</a>`);
+    `${PER.esAdmin() || PER.proyectoPermitido(p.id) ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}${PER.esAdmin() ? "Cargar" : "Proponer gasto"}</a>` : ""}<a class="btn btn-sec btn-sec-escritorio" href="#movimientos">Movimientos</a>`);
+  h += PER.avisoPendientesHtml(x => ((x.datos || x.anterior || {}).bolsillo || (x.datos || x.anterior || {}).proyecto) === p.id);
 
   if (p.estado === "cerrado" && p.cierre) {
     const z = p.cierre.resumen || {};
@@ -141,7 +143,8 @@ function ultimos(movs, conj, n = 6) {
 function tableroMica(el) {
   const r = M.resumenMica();
   let h = cabecera("Vista general", "MICA", "Todos los proyectos y la estructura común, en dólares MEP netos de IVA.",
-    `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Cargar gasto de estructura</a>`);
+    PER.esAdmin() ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Cargar gasto de estructura</a>` : "");
+  h += PER.avisoPendientesHtml();
   const venc = C.vencidasTodas();
   if (venc.length) {
     h += `<div class="aviso" role="alert">${ICONOS.alerta}<div><b>${venc.length === 1 ? "Hay una factura vencida" : `Hay ${venc.length} facturas vencidas`}.</b> ${venc.map(d => `${esc(d.proyecto.nombre)}: ${esc(C.tituloDoc(d.doc))}, ${fmtMoneda(d.saldo, d.proyecto.moneda)} hace ${d.diasVencido} día${d.diasVencido === 1 ? "" : "s"}`).join("; ")}.</div></div>`;
@@ -178,7 +181,8 @@ function tableroMagna(el) {
   const r = M.resumenMagna();
   const b = id => r.bolsillos.find(x => x.id === id) || { saldo: { ars: 0, usd: 0 } };
   let h = cabecera("Razón social", "Magna Desarrollos SRL", "La cuenta bancaria de Magna separada en bolsillos. La suma de los bolsillos es el saldo que tiene que mostrar el banco.",
-    `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Cargar</a><a class="btn btn-sec btn-sec-escritorio" href="#cargar/nuevo/pase/prestamo">Pase entre bolsillos</a>`);
+    PER.esAdmin() ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Cargar</a><a class="btn btn-sec btn-sec-escritorio" href="#cargar/nuevo/pase/prestamo">Pase entre bolsillos</a>` : "");
+  h += PER.avisoPendientesHtml();
   r.negativos.forEach(x => {
     h += `<div class="aviso" role="alert">${ICONOS.alerta}<div><b>${esc(x.nombre)} está en ${fmtARS(x.saldo.ars)}.</b> Usó plata de otro bolsillo (seguramente de Magna · Julio). Registrá el préstamo para que quede la deuda a favor de quien puso la plata.
       <div style="margin-top:8px"><a class="btn btn-sec btn-chico" href="#cargar/nuevo/pase/prestamo">Registrar préstamo</a></div></div></div>`;

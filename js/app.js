@@ -23,8 +23,11 @@ import * as preguntar from "./vistas/preguntar.js";
 import * as liquidacion from "./vistas/liquidacion.js";
 import * as base from "./vistas/base.js";
 import { vencidasTodas } from "./certificados.js";
+import * as aprobaciones from "./vistas/aprobaciones.js";
+import * as PER from "./permisos.js";
+import { comoSistema } from "./db.js";
 
-const VISTAS = { tablero, cargar, movimientos, presupuesto, certificados, seguimiento, cierre, liquidacion, socios, impuestos, base, preguntar, ajustes, mas };
+const VISTAS = { tablero, cargar, movimientos, presupuesto, certificados, seguimiento, cierre, liquidacion, socios, impuestos, base, preguntar, ajustes, mas, aprobaciones };
 const raiz = $("#app");
 let shellListo = false;
 let actual = { ruta: "", params: [], vista: null };
@@ -88,15 +91,16 @@ async function entrar(usuario) {
     // En la nube, los datos iniciales se cargan solo si el servidor confirma que la base está vacía
     // (un dispositivo nuevo sin señal podría ver un caché vacío y pisar datos reales).
     if (estado.modo === "nube") {
-      if (!(S.config.general || {}).semilla && (await existeEnServidor("config", "general")) === false) sembrarSiHaceFalta();
-    } else {
+      // Solo el administrador inicializa la base (los demás no pueden escribir en ella).
+      if (PER.esAdmin() && !(S.config.general || {}).semilla && (await existeEnServidor("config", "general")) === false) sembrarSiHaceFalta();
+    } else comoSistema(() => {
       sembrarSiHaceFalta();
       // Vista previa: arranca con datos de ejemplo para mostrar cómo se ve con la obra en marcha.
       if (window.MICA_DEMO && !S.movimientos.length) {
         cargarEjemplo();
         if (!(S.config.general || {}).impuestos) guardarConfig("general", { impuestos: { iibb: 3, ganancias: 35, chequeCredito: 0.6, chequeDebito: 0.6, chequeComputable: 33 } });
       }
-    }
+    });
   }
   armarShell();
   navegar();
@@ -122,6 +126,16 @@ const MENU_PROYECTO = [
   { ruta: "liquidacion", nombre: "Cierre de proyecto", icono: "bandera" }
 ];
 
+/* Nombre de la pantalla de pedidos según el rol. */
+const nombreAprob = () => (PER.esAdmin() ? "Aprobaciones" : PER.esOperativo() ? "Mis cargas" : "Pendientes");
+function aplicarRol() {
+  const r = PER.rol();
+  document.body.classList.remove("rol-admin", "rol-operativo", "rol-veedor");
+  document.body.classList.add("rol-" + r);
+  $$("[data-nombre-aprob]").forEach(n => { n.textContent = nombreAprob(); });
+  $$("[data-rol-txt]").forEach(n => { n.textContent = PER.nombreRol(r); });
+}
+
 function armarShell() {
   const u = app.usuario;
   const ctx = ctxValido();
@@ -133,6 +147,7 @@ function armarShell() {
       <div class="lateral-ctx"><label for="sel-ctx">Viendo</label><select id="sel-ctx" class="sel-ctx">${opcionesCtx(ctx)}</select></div>
       <nav class="lateral-nav">
         ${MENU.map(m => `<a href="#${m.ruta}" data-ruta="${m.ruta}">${ICONOS[m.icono]}<span>${m.nombre}</span></a>`).join("")}
+        <a href="#aprobaciones" data-ruta="aprobaciones">${ICONOS.ok}<span data-nombre-aprob>${nombreAprob()}</span></a>
         <div class="sep"></div>
         <div class="rot">Proyecto</div>
         ${MENU_PROYECTO.map(m => `<a href="#${m.ruta}" data-ruta="${m.ruta}">${ICONOS[m.icono]}<span>${m.nombre}</span></a>`).join("")}
@@ -143,11 +158,12 @@ function armarShell() {
         <a href="#base" data-ruta="base">${ICONOS.base}<span>Base de costos</span></a>
         <a href="#preguntar" data-ruta="preguntar">${ICONOS.preguntar}<span>Preguntar</span></a>
         <div class="sep"></div>
-        <a href="#ajustes" data-ruta="ajustes">${ICONOS.ajustes}<span>Ajustes</span></a>
+        <a href="#ajustes" data-ruta="ajustes">${ICONOS.ajustes}<span>${PER.esAdmin() ? "Ajustes" : "Exportar y datos"}</span></a>
+        <a href="ayuda.html" target="_blank" rel="noopener">${ICONOS.preguntar}<span>Guía de uso</span></a>
       </nav>
       <div class="lateral-pie">
         <div class="avatar">${u.foto ? `<img src="${esc(u.foto)}" alt="" referrerpolicy="no-referrer">` : esc(inicial)}</div>
-        <div class="quien"><b>${esc(u.nombre)}</b><span>${estado.modo === "nube" ? ICONOS.nube + "En la nube" : ICONOS.local + "Modo local"}</span></div>
+        <div class="quien"><b>${esc(u.nombre)} <small class="rol-chip" data-rol-txt>${esc(PER.nombreRol(PER.rol()))}</small></b><span>${estado.modo === "nube" ? ICONOS.nube + "En la nube" : ICONOS.local + "Modo local"}</span></div>
         <button class="btn-icono" id="btn-salir" title="Salir" aria-label="Salir">${ICONOS.salir}</button>
       </div>
     </aside>
@@ -177,13 +193,14 @@ function armarShell() {
   }));
   $("#btn-salir").addEventListener("click", cerrarSesion);
   shellListo = true;
+  aplicarRol();
   avisoNube();
   marcarVencidas();
 }
 
 function marcarNav(ruta) {
   const r = ruta === "mas" ? "mas" : ruta;
-  const enMas = ["ajustes", "presupuesto", "certificados", "seguimiento", "cierre", "liquidacion", "socios", "impuestos", "base", "preguntar"].includes(r);
+  const enMas = ["aprobaciones", "ajustes", "presupuesto", "certificados", "seguimiento", "cierre", "liquidacion", "socios", "impuestos", "base", "preguntar"].includes(r);
   $$("[data-ruta]").forEach(a => a.classList.toggle("activo", a.dataset.ruta === r || !!(enMas && a.dataset.ruta === "mas" && a.closest(".nav-inferior"))));
 }
 
@@ -219,22 +236,26 @@ function alCambiarDatos(col) {
     pendiente = false;
     const ctx = ctxValido();
     $$(".sel-ctx").forEach(s => { s.innerHTML = opcionesCtx(ctx); });
+    if (col === "config" || col === "*") aplicarRol();
     marcarVencidas();
     pintar(false);
   });
 }
 
-/* Cantidad de facturas vencidas, en el menú lateral y en «Más». */
+/* Contadores del menú: facturas vencidas y pedidos para revisar (también en «Más»). */
 function marcarVencidas() {
-  let n = 0;
+  let n = 0, a = 0;
   try { n = vencidasTodas().length; } catch (e) { n = 0; }
-  $$('[data-ruta="certificados"], [data-ruta="mas"]').forEach(a => {
-    let b = a.querySelector(".badge");
-    if (!n) { if (b) b.remove(); return; }
-    if (!b) { b = document.createElement("span"); b.className = "badge"; a.appendChild(b); }
-    b.textContent = n;
-    b.title = `${n} factura${n === 1 ? "" : "s"} vencida${n === 1 ? "" : "s"}`;
+  try { a = aprobaciones.contador(); } catch (e) { a = 0; }
+  const poner = (sel, k, titulo) => $$(sel).forEach(el => {
+    let b = el.querySelector(".badge");
+    if (!k) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement("span"); b.className = "badge"; el.appendChild(b); }
+    b.textContent = k; b.title = titulo;
   });
+  poner('[data-ruta="certificados"], [data-ruta-mas="certificados"]', n, `${n} factura${n === 1 ? "" : "s"} vencida${n === 1 ? "" : "s"}`);
+  poner('[data-ruta="aprobaciones"], [data-ruta-mas="aprobaciones"]', a, PER.esAdmin() ? `${a} pedido${a === 1 ? "" : "s"} para aprobar` : `${a} pedido${a === 1 ? "" : "s"} rechazado${a === 1 ? "" : "s"}`);
+  poner('.nav-inferior [data-ruta="mas"]', n + a, "Pendientes");
 }
 
 function avisoNube() {

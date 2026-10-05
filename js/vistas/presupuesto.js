@@ -7,6 +7,7 @@ import { S, guardar, nuevoId } from "../db.js";
 import { app } from "../contexto.js";
 import * as M from "../modelo.js";
 import * as P from "../presupuesto.js";
+import * as PER from "../permisos.js";
 import { $, $$, esc, num, fmtMoneda, fmtPct, fmtCant, fmtMiles, fmtFecha, fmtFechaHora, mesLabel, parseMonto, hoyISO, toast, confirmar2, modal, cerrarModal, cargarScript, cabecera, ICONOS } from "../ui.js";
 import { pedirProyecto, letraColumna } from "./comun.js";
 
@@ -292,6 +293,11 @@ function pestanaAvance(cont, p, mesParam) {
   const meses = mesesDisponibles(p);
   const mes = meses.includes(mesParam) ? mesParam : hoyISO().slice(0, 7);
   const doc = P.avanceDelMes(p.id, mes);
+  const admin = PER.esAdmin();
+  const puede = admin || PER.proyectoPermitido(p.id);
+  // Operativo: si ya propuso el avance de este mes, se muestran sus cantidades pendientes.
+  const solAv = !admin ? PER.pendienteDe("avances", P.idAvance(p.id, mes)) : null;
+  const cantMes = solAv ? (solAv.datos || {}).cantidades || {} : ((doc || {}).cantidades || {});
   const av = P.avancesDe(p.id);
   const [ya, ma] = mes.split("-").map(Number);
   const anterior = ma === 1 ? `${ya - 1}-12` : `${ya}-${String(ma - 1).padStart(2, "0")}`;
@@ -301,7 +307,7 @@ function pestanaAvance(cont, p, mesParam) {
 
   const filas = items.map(it => {
     const prev = P.ejecutado(av, it.id, anterior);
-    const esteMes = P.n(((doc || {}).cantidades || {})[it.id]);
+    const esteMes = P.n(cantMes[it.id]);
     const pl = planHasta(it.id, mes);
     return `<tr data-it="${esc(it.id)}" data-prev="${prev}" data-cant="${P.n(it.cantidad)}">
       <td class="desc"><b>Ítem ${esc(it.numero)}</b> · <span class="desc-txt">${esc(it.descripcion)}</span><small>${esc(it.unidad || "")} · contratado ${esc(fmtCant(P.n(it.cantidad)))}${pl ? ` · plan al mes ${esc(fmtCant(pl))}` : ""}</small></td>
@@ -316,7 +322,8 @@ function pestanaAvance(cont, p, mesParam) {
       <div class="campo" style="min-width:170px"><label for="av-mes" class="sr">Mes</label><select id="av-mes" class="input">${meses.map(m => `<option value="${m}"${m === mes ? " selected" : ""}>${mesLabel(m)}</option>`).join("")}</select></div></div>
     <div class="tabla-env"><table class="tabla"><thead><tr><th>Ítem</th><th class="n ocultar-movil">Acumulado anterior</th><th class="n">Este mes</th><th class="n">Acumulado</th><th class="n col-pct">Avance</th></tr></thead><tbody>${filas}</tbody>
       <tfoot><tr class="total"><td>Avance global</td><td class="ocultar-movil"></td><td></td><td class="n" id="av-plan"></td><td class="n col-pct" id="av-global"></td></tr></tfoot></table></div>
-    <div class="form-pie" style="margin-top:14px"><button class="btn btn-pri" id="av-guardar">Guardar avance de ${esc(mesLabel(mes))}</button>
+    ${solAv ? `<div class="aviso aviso-info" style="margin:12px 0 0">${ICONOS.alerta}<div>Tu avance de ${esc(mesLabel(mes).toLowerCase())} está <b>pendiente de aprobación</b>. Las cantidades que ves son las que propusiste; podés corregirlas y volver a enviar.</div></div>` : ""}
+    <div class="form-pie" style="margin-top:14px">${puede ? `<button class="btn btn-pri" id="av-guardar">${admin ? "Guardar" : "Enviar para aprobación el"} avance de ${esc(mesLabel(mes))}</button>` : ""}
       ${doc ? `<span class="chico mute">Cargado por ${esc(M.socioNombre(doc.cargadoPor) || "—")}${doc.modificado ? " · última edición " + fmtFechaHora(doc.modificado) : ""}</span>` : ""}</div>
   </section>
   ${histMeses.length ? `<section class="panel"><div class="panel-cab"><div><h2>Historial de avance</h2><p class="panel-sub">Cantidades ejecutadas por mes.</p></div></div>
@@ -351,7 +358,8 @@ function pestanaAvance(cont, p, mesParam) {
     avisado = false; sucio = false;
     app.ir("presupuesto/avance/" + e.target.value);
   });
-  $("#av-guardar", cont).addEventListener("click", () => {
+  if (!puede) $$("[data-q]", cont).forEach(i => { i.readOnly = true; });
+  if (puede) $("#av-guardar", cont).addEventListener("click", () => {
     const cantidades = {};
     let mal = false;
     $$("tr[data-it]", cont).forEach(tr => {
@@ -363,6 +371,12 @@ function pestanaAvance(cont, p, mesParam) {
     });
     if (mal) return toast("Hay una cantidad que no es un número.", "error");
     const ahora = new Date().toISOString();
+    if (!admin) {
+      PER.proponer({ coleccion: "avances", docId: P.idAvance(p.id, mes), datos: { proyecto: p.id, mes, cantidades } });
+      sucio = false; avisado = false;
+      toast(`Avance de ${mesLabel(mes)} enviado para aprobación`);
+      return app.refrescar();
+    }
     guardar("avances", Object.assign({}, doc || {}, {
       id: P.idAvance(p.id, mes), proyecto: p.id, mes, cantidades,
       cargadoPor: (doc && doc.cargadoPor) || app.usuario.socio, cargadoEl: (doc && doc.cargadoEl) || ahora,

@@ -11,29 +11,40 @@ import * as P from "../presupuesto.js";
 import * as C from "../certificados.js";
 import * as IA from "../ia.js";
 import * as I from "../impuestos.js";
+import * as PER from "../permisos.js";
 import { $, $$, esc, num, fmtARS, fmtUSD, fmtMoneda, fmtFecha, fmtFechaHora, fmtMiles, parseMonto, hoyISO, toast, confirmar2, modal, cerrarModal, descargar, cargarScript, cabecera, ICONOS } from "../ui.js";
 
-const PESTANAS = [
+const PESTANAS_ADMIN = [
   { id: "proyectos", nombre: "Proyectos" },
   { id: "proveedores", nombre: "Proveedores" },
   { id: "cuentas", nombre: "Cuentas y categorías" },
   { id: "impuestos", nombre: "Impuestos e IA" },
+  { id: "usuarios", nombre: "Usuarios y permisos" },
   { id: "datos", nombre: "Datos y respaldo" }
+];
+// Operativos y veedores no configuran nada: exportan y cargan su propia clave de IA (que queda en su dispositivo).
+const PESTANAS_OTROS = [
+  { id: "datos", nombre: "Exportar y datos" },
+  { id: "ia", nombre: "Mi clave de IA" }
 ];
 
 let editandoProyecto = false;
 export const fija = () => editandoProyecto;
 
 export function render(el, params) {
-  const tab = PESTANAS.some(t => t.id === params[0]) ? params[0] : "proyectos";
+  const admin = PER.esAdmin();
+  const PESTANAS = admin ? PESTANAS_ADMIN : PESTANAS_OTROS;
+  const tab = PESTANAS.some(t => t.id === params[0]) ? params[0] : PESTANAS[0].id;
   editandoProyecto = false;
-  el.innerHTML = cabecera("", "Ajustes", "Lo que se cambia acá vale para los cuatro socios.") +
+  el.innerHTML = cabecera("", admin ? "Ajustes" : "Exportar y datos", admin ? "Lo que se cambia acá vale para los cuatro socios." : "Descargá la información para usarla por tu cuenta. La configuración de la app la maneja Julio.") +
     `<nav class="pestanas">${PESTANAS.map(t => `<a href="#ajustes/${t.id}" class="${t.id === tab ? "activo" : ""}">${t.nombre}</a>`).join("")}</nav><div id="aj"></div>`;
   const cont = $("#aj", el);
   if (tab === "proyectos") return params[1] ? formProyecto(cont, params[1]) : listaProyectos(cont);
   if (tab === "proveedores") return proveedores(cont);
   if (tab === "cuentas") return cuentas(cont);
-  if (tab === "impuestos") return impuestosIA(cont);
+  if (tab === "impuestos") return impuestosIA(cont, false);
+  if (tab === "ia") return impuestosIA(cont, true);
+  if (tab === "usuarios") return usuarios(cont);
   return datos(cont);
 }
 
@@ -301,13 +312,13 @@ function editarCuenta(c0) {
 }
 
 /* =================== IMPUESTOS E IA =================== */
-function impuestosIA(cont) {
+function impuestosIA(cont, soloIA) {
   const t = M.parametrosImpuestos();
   const ia = IA.config();
   const uso = IA.usoDelMes();
   const v = x => String(x ?? "").replace(".", ",");
-  cont.innerHTML = `<div class="grid-2" style="margin-top:0">
-    <section class="panel"><div class="panel-cab"><div><h2>Tasas de impuestos</h2><p class="panel-sub">Valen para toda Magna. Son estimaciones para reservar y ver el resultado neto: conviene validarlas con la contadora.</p></div></div>
+  cont.innerHTML = `<div class="${soloIA ? "" : "grid-2"}" style="margin-top:0">
+    <section class="panel"${soloIA ? " hidden" : ""}><div class="panel-cab"><div><h2>Tasas de impuestos</h2><p class="panel-sub">Valen para toda Magna. Son estimaciones para reservar y ver el resultado neto: conviene validarlas con la contadora.</p></div></div>
       <form class="form" id="fimp" novalidate>
         <div class="fila fila-movil-2">
           <div class="campo"><label for="t-iibb">Ingresos Brutos (% de lo facturado neto)</label><input id="t-iibb" inputmode="decimal" value="${v(t.iibb)}"></div>
@@ -320,7 +331,7 @@ function impuestosIA(cont) {
         <div class="campo"><label for="t-chp">Parte del impuesto al cheque que se computa contra Ganancias (%)</label><input id="t-chp" inputmode="decimal" value="${v(t.chequeComputable)}"></div>
         <div class="form-pie"><button class="btn btn-pri" type="submit">Guardar tasas</button></div>
       </form></section>
-    <section class="panel"><div class="panel-cab"><div><h2>Asistente con IA</h2><p class="panel-sub">Lee facturas, entiende gastos escritos o dictados, arma el informe del cierre de mes y responde preguntas. Usa la API de Anthropic con una clave de MICA.</p></div></div>
+    <section class="panel" style="${soloIA ? "max-width:640px" : ""}"><div class="panel-cab"><div><h2>Asistente con IA</h2><p class="panel-sub">Lee facturas, entiende gastos escritos o dictados, arma el informe del cierre de mes y responde preguntas. Usa la API de Anthropic con una clave de MICA.</p></div></div>
       <form class="form" id="fia" novalidate>
         <div class="campo"><label for="ia-key">Clave de API de Anthropic</label><input id="ia-key" type="password" autocomplete="off" value="${esc(ia.key || "")}" placeholder="sk-ant-…"></div>
         <div class="campo"><label for="ia-modelo">Modelo</label><select id="ia-modelo">${IA.MODELOS.map(m => `<option value="${m.id}"${m.id === ia.modelo ? " selected" : ""}>${esc(m.nombre)} · ${esc(m.detalle)}</option>`).join("")}</select></div>
@@ -354,9 +365,53 @@ function impuestosIA(cont) {
   if (bq) bq.addEventListener("click", e => confirmar2(e.currentTarget, () => { IA.guardarConfig({ key: "" }); app.refrescar(); toast("Clave quitada de este dispositivo"); }));
 }
 
+/* =================== USUARIOS Y PERMISOS =================== */
+function usuarios(cont) {
+  const otros = USUARIOS.filter(u => PER.permisoDe(u.socio).rol !== "admin");
+  const proys = M.proyectosOrdenados().filter(p => p.estado !== "cerrado");
+  cont.innerHTML = `<section class="panel" style="max-width:860px"><div class="panel-cab"><div><h2>Usuarios y permisos</h2><p class="panel-sub">Vos sos el administrador. Los operativos ven todo y proponen gastos de obra y avance físico de los proyectos que les habilites; nada se aplica hasta que lo apruebes en <a href="#aprobaciones">Aprobaciones</a>. Los veedores ven y exportan, sin modificar.</p></div></div>
+    <form class="form" id="fus" novalidate>
+      ${otros.map(u => { const per = PER.permisoDe(u.socio); return `<fieldset class="us-fila" data-socio="${esc(u.socio)}">
+        <legend><b>${esc(M.socioNombre(u.socio))}</b> <span class="mute chico">${esc(u.email)}</span></legend>
+        <div class="fila fila-2">
+          <div class="campo"><label for="us-rol-${esc(u.socio)}">Permiso</label><select id="us-rol-${esc(u.socio)}" data-rol>${PER.ROLES.filter(r => r.id !== "admin").map(r => `<option value="${r.id}"${per.rol === r.id ? " selected" : ""}>${esc(r.nombre)}</option>`).join("")}</select><div class="hint" data-rol-hint></div></div>
+          <div class="campo" data-proys><span class="rotulo">Proyectos donde propone</span>
+            <label class="check"><input type="checkbox" data-todos${per.proyectos === "todos" ? " checked" : ""}><span>Todos, incluidos los que se creen después</span></label>
+            ${proys.map(p => `<label class="check" data-uno><input type="checkbox" value="${esc(p.id)}"${per.proyectos === "todos" || per.proyectos.includes(p.id) ? " checked" : ""}><span>${esc(p.nombre)}</span></label>`).join("")}
+          </div>
+        </div></fieldset>`; }).join("")}
+      <div class="form-pie"><button class="btn btn-pri" type="submit">Guardar permisos</button></div>
+      <p class="hint" style="margin:0">Para sumar o sacar una persona hay que editar <code>js/config.js</code> y <code>firestore.rules</code>. Los permisos de esta pantalla los aplica también la base de datos: no dependen de lo que muestre cada celular.</p>
+    </form></section>`;
+  const f = $("#fus", cont);
+  const sync = fs => {
+    const rol = $("[data-rol]", fs).value;
+    $("[data-rol-hint]", fs).textContent = (PER.ROLES.find(r => r.id === rol) || {}).detalle || "";
+    $("[data-proys]", fs).hidden = rol !== "operativo";
+    const todos = $("[data-todos]", fs).checked;
+    $$("[data-uno] input", fs).forEach(i => { i.disabled = todos; if (todos) i.checked = true; });
+  };
+  $$(".us-fila", f).forEach(fs => { sync(fs); fs.addEventListener("change", () => { editandoProyecto = true; sync(fs); }); });
+  f.addEventListener("submit", e => {
+    e.preventDefault();
+    const usuariosCfg = {};
+    for (const fs of $$(".us-fila", f)) {
+      const rol = $("[data-rol]", fs).value;
+      const todos = $("[data-todos]", fs).checked;
+      const lista = $$("[data-uno] input", fs).filter(i => i.checked).map(i => i.value);
+      if (rol === "operativo" && !todos && !lista.length) return toast(`Elegí al menos un proyecto para ${M.socioNombre(fs.dataset.socio)}, o pasalo a veedor.`, "error");
+      usuariosCfg[fs.dataset.socio] = { rol, proyectos: rol === "operativo" && !todos ? lista : "todos" };
+    }
+    guardarConfig("permisos", { usuarios: usuariosCfg, modificado: new Date().toISOString(), por: app.usuario.socio });
+    editandoProyecto = false;
+    toast("Permisos guardados");
+  });
+}
+
 /* =================== DATOS =================== */
 function datos(cont) {
   const local = estado.modo === "local";
+  const admin = PER.esAdmin();
   const pap = S.papelera.slice().sort((a, b) => String(b.borradoEl).localeCompare(String(a.borradoEl)));
   const nDemo = S.movimientos.filter(m => m.demo).length;
   const desc = t => {
@@ -374,18 +429,18 @@ function datos(cont) {
       <button class="btn btn-sec" id="d-excel">${ICONOS.descargar}Descargar Excel</button></section>
     <section class="panel"><div class="panel-cab"><div><h2>Respaldo</h2><p class="panel-sub">Copia completa en un archivo. Conviene bajarla una vez por mes y guardarla en el Drive de MICA.</p></div></div>
       <div class="form-pie"><button class="btn btn-sec" id="d-json">${ICONOS.descargar}Descargar respaldo</button>
-      <label class="btn btn-fant" for="d-archivo">${ICONOS.subir}Restaurar un respaldo</label><input type="file" id="d-archivo" accept="application/json,.json" hidden></div></section>
+      ${admin ? `<label class="btn btn-fant" for="d-archivo">${ICONOS.subir}Restaurar un respaldo</label><input type="file" id="d-archivo" accept="application/json,.json" hidden>` : ""}</div></section>
   </div>
 
-  <section class="panel" style="margin-top:16px"><div class="panel-cab"><div><h2>Papelera</h2><p class="panel-sub">Lo borrado queda acá con quién y cuándo lo borró, y se puede restaurar.</p></div>${pap.length ? `<button class="btn btn-peligro btn-chico" id="d-vaciar">Vaciar papelera</button>` : ""}</div>
+  <section class="panel" style="margin-top:16px"${admin ? "" : " hidden"}><div class="panel-cab"><div><h2>Papelera</h2><p class="panel-sub">Lo borrado queda acá con quién y cuándo lo borró, y se puede restaurar.</p></div>${pap.length ? `<button class="btn btn-peligro btn-chico" id="d-vaciar">Vaciar papelera</button>` : ""}</div>
     ${pap.length ? `<div class="tabla-env"><table class="tabla"><tbody>${pap.map(t => `<tr><td class="desc">${esc(desc(t))}<small>Borrado por ${esc(M.socioNombre(t.por) || t.por || "—")} el ${fmtFechaHora(t.borradoEl)}</small></td><td class="n"><button class="btn btn-sec btn-chico" data-rest="${esc(t.id)}">${ICONOS.restaurar}Restaurar</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="vacio">La papelera está vacía.</div>`}
   </section>
 
   <div class="grid-2">
-    <section class="panel"><div class="panel-cab"><div><h2>Usuarios autorizados</h2><p class="panel-sub">Los cuatro socios ven y editan todo. Para cambiar la lista hay que editar <code>js/config.js</code> y <code>firestore.rules</code>.</p></div></div>
-      <div class="tabla-env"><table class="tabla"><tbody>${USUARIOS.map(u => `<tr><td><b>${esc(M.socioNombre(u.socio))}</b></td><td>${esc(u.email)}</td></tr>`).join("")}</tbody></table></div></section>
+    <section class="panel"><div class="panel-cab"><div><h2>Usuarios autorizados</h2><p class="panel-sub">Quién entra y con qué permiso.${admin ? ` Los permisos se cambian en <a href="#ajustes/usuarios">Usuarios y permisos</a>.` : ""}</p></div></div>
+      <div class="tabla-env"><table class="tabla"><tbody>${USUARIOS.map(u => `<tr><td><b>${esc(M.socioNombre(u.socio))}</b><small class="mute" style="display:block">${esc(u.email)}</small></td><td>${esc(PER.nombreRol(PER.permisoDe(u.socio).rol))}</td></tr>`).join("")}</tbody></table></div></section>
     <section class="panel"><div class="panel-cab"><div><h2>Dónde se guardan los datos</h2></div></div>
-      ${local
+      ${local && admin
         ? `<div class="aviso">${ICONOS.alerta}<div><b>Modo local.</b> Los datos están solo en este navegador. Para compartirlos entre los socios hay que configurar Firebase (ver LEEME.md).</div></div>
            <div class="form-pie">
              ${nDemo ? `<button class="btn btn-sec" id="d-sin-demo">Quitar datos de ejemplo (${nDemo})</button>` : `<button class="btn btn-sec" id="d-demo">Cargar datos de ejemplo</button>`}
@@ -399,7 +454,7 @@ function datos(cont) {
     descargar(`MICA_respaldo_${hoyISO()}.json`, JSON.stringify(respaldo(), null, 1));
     toast("Respaldo descargado");
   });
-  $("#d-archivo", cont).addEventListener("change", async e => {
+  if (admin) $("#d-archivo", cont).addEventListener("change", async e => {
     const file = e.target.files[0];
     e.target.value = "";
     if (!file) return;
@@ -449,7 +504,7 @@ async function exportarExcel() {
     "Monto ARS": r2(m.montoARS), "IVA ARS": r2(m.ivaARS), "Neto ARS": r2(M.netoArs(m)), "Dólar MEP": r2(m.cotizacion), "Monto USD": r2(M.usd(m)), "Neto USD": r2(M.netoUsd(m)),
     "Ret. Ganancias": r2(m.retGan), "Ret. IIBB": r2(m.retIIBB), "Ret. IVA": r2(m.retIVA), "Ret. otras": r2(m.retOtras), "TC de pago": m.tcPago || "",
     Certificado: m.certificado ? (C.tituloDoc(S.certificados.find(c => c.id === m.certificado) || {}) || "") : "",
-    Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", Id: m.id
+    Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", "Aprobado por": m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", Id: m.id
   }));
   const hProy = M.proyectosOrdenados().map(p => { const r = M.resumenProyecto(p); return {
     Proyecto: p.nombre, "Código": p.codigo || "", Cliente: p.cliente || "", Estado: (M.ESTADOS_PROYECTO.find(e => e.id === p.estado) || {}).nombre || "", Moneda: p.moneda,
@@ -543,6 +598,13 @@ async function exportarExcel() {
   hoja(hBol, "Saldos por bolsillo", [30, 16, 20]);
   hoja(hProv, "Proveedores", [30, 16, 20, 30]);
   hoja(hCierres, "Cierres", [22, 12, 12, 13, 13, 13, 13, 15, 12, 12, 13, 15, 13, 15, 15, 12, 12, 12, 26, 14]);
+  const hSol = S.solicitudes.slice().sort((a, b) => String(b.creadoEl).localeCompare(String(a.creadoEl))).map(x => ({
+    Pedido: x.creadoEl ? x.creadoEl.slice(0, 16).replace("T", " ") : "", "Pedido por": PER.socioNombre(x.autor), Acción: PER.ACCIONES[x.accion] || x.accion,
+    Qué: x.coleccion === "avances" ? "Avance físico" : "Gasto de obra", Detalle: x.resumen || "", Estado: PER.ESTADOS[x.estado] || x.estado,
+    "Resuelto por": x.resueltoPor ? PER.socioNombre(x.resueltoPor) : "", Resuelto: x.resueltoEl ? x.resueltoEl.slice(0, 16).replace("T", " ") : "",
+    "Con correcciones": x.corregido ? "Sí" : "", Motivo: x.motivo || ""
+  }));
+  hoja(hSol, "Aprobaciones", [17, 12, 13, 14, 60, 11, 12, 17, 10, 40]);
   hoja(hFichas, "Base de costos", [22, 22, 22, 6, 18, 6, 20, 60, 8, 10, 12, 12, 12, 12, 12, 14, 14, 14, 14, 9, 14, 9, 30]);
   XLSX.writeFile(wb, `MICA_gestion_${hoyISO()}.xlsx`);
   toast("Excel descargado");

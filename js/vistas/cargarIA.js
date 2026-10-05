@@ -4,6 +4,7 @@
    y guarda.
    ========================================================= */
 import { S, guardar } from "../db.js";
+import * as PER from "../permisos.js";
 import { app } from "../contexto.js";
 import { SOCIOS } from "../config.js";
 import * as M from "../modelo.js";
@@ -128,7 +129,7 @@ function revisarFactura(d, bol, file) {
     ${esProy ? `<select class="input" data-r="tipoCosto" aria-label="Tipo de costo"><option value="">Tipo</option>${M.TIPOS_COSTO.map(t => `<option${t === r.tipoCosto ? " selected" : ""}>${t}</option>`).join("")}</select>` : ""}
     <input class="input n" data-r="monto" inputmode="decimal" value="${v(r.monto)}" aria-label="Monto" style="text-align:right">
     <button type="button" class="btn-icono" data-quitar aria-label="Quitar renglón">${ICONOS.cerrar}</button></div>`;
-  const md = modal("Factura leída con IA", `<form class="form" id="fr" novalidate>
+  const md = modal("Factura leída con IA", `<form class="form abierto-a-todos" id="fr" novalidate>
     <p class="mute" style="margin:0">Revisá lo que leyó la IA antes de guardar. Se carga en <b>${esc(M.nombreBolsillo(bol))}</b>.</p>
     <div class="fila fila-movil-2">
       <div class="campo"><label for="r-fecha">Fecha</label><input id="r-fecha" type="date" value="${esc(fechaOk)}"></div>
@@ -199,9 +200,10 @@ function revisarFactura(d, bol, file) {
     if (rs.some(r => !r.imputacion)) return toast(esProy ? "Hay un renglón sin imputación." : "Hay un renglón sin categoría.", "error");
     if (iva < 0 || iva >= tot) return toast("Revisá el IVA.", "error");
     const ahora = new Date().toISOString();
+    const admin = PER.esAdmin();
     rs.forEach(r => {
       const ivaR = tot ? Math.round(iva * r.monto / tot * 100) / 100 : 0;
-      guardar("movimientos", {
+      (admin ? (x => guardar("movimientos", x)) : (x => PER.proponer({ coleccion: "movimientos", accion: "alta", datos: x })))({
         tipo: "egreso", clase: "gasto", fecha: c.fecha, bolsillo: bol, destino: "", cuenta: (S.cuentas[0] || {}).id || "c_magna",
         montoARS: Math.round(r.monto * 100) / 100, cotizacion: c.cotizacion, cotizacionFuente: c.cotizacionFuente, montoUSD: Math.round(r.monto / c.cotizacion * 100) / 100,
         proveedor: c.proveedor, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, fiscal: c.fiscal,
@@ -209,8 +211,12 @@ function revisarFactura(d, bol, file) {
         socio: "", tasa: null, notas: "Leído con IA", leidoConIA: true, creadoPor: app.usuario.socio, creadoEl: ahora
       });
     });
-    if (c.proveedor && !S.proveedores.some(p => p.nombre.toLowerCase() === c.proveedor.toLowerCase())) guardar("proveedores", { nombre: c.proveedor, cuit: d.cuit || "", rubro: "", notas: "", creadoPor: app.usuario.socio });
+    if (admin && c.proveedor && !S.proveedores.some(p => p.nombre.toLowerCase() === c.proveedor.toLowerCase())) guardar("proveedores", { nombre: c.proveedor, cuit: d.cuit || "", rubro: "", notas: "", creadoPor: app.usuario.socio });
     cerrarModal();
+    if (!admin) {
+      toast(rs.length > 1 ? `${rs.length} gastos enviados para aprobación · ${fmtARS(tot)}` : `Gasto enviado para aprobación · ${fmtARS(tot)}`);
+      return app.ir("aprobaciones");
+    }
     toast(rs.length > 1 ? `${rs.length} gastos guardados · ${fmtARS(tot)}` : `Gasto guardado · ${fmtARS(tot)} · ${fmtUSD(tot / c.cotizacion)}`);
     app.ir("movimientos");
   });

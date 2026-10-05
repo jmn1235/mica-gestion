@@ -9,6 +9,7 @@ import * as P from "../presupuesto.js";
 import * as C from "../certificados.js";
 import * as I from "../impuestos.js";
 import * as IA from "../ia.js";
+import { pendientes } from "../permisos.js";
 import { contextoProyecto } from "../contextoIA.js";
 import { $, esc, num, fmtUSD, fmtARS, fmtFecha, mesLabel, hoyISO, toast, cabecera, ICONOS } from "../ui.js";
 import { pedirProyecto } from "./comun.js";
@@ -136,5 +137,7 @@ function listaControl(p, mes, costosMes) {
 
   const sinTasa = M.prestamosDe(p.id).some(x => x.sinTasa);
   if (M.prestamosDe(p.id).length) out.push({ ok: !sinTasa, titulo: "Préstamos con tasa", detalle: sinTasa ? "Hay préstamos sin tasa: no generan interés." : "", accion: sinTasa ? ["Revisar", "#socios"] : null });
+  const pend = pendientes().filter(x => { const d = x.datos || x.anterior || {}; return (d.bolsillo || d.proyecto) === p.id; });
+  out.push({ ok: !pend.length, titulo: "Sin aprobaciones pendientes", detalle: pend.length ? `${pend.length} cambio${pend.length === 1 ? "" : "s"} de los operativos sin aprobar: no cuentan en los números del mes.` : "", accion: pend.length ? ["Revisar", "#aprobaciones"] : null });
   return out;
 }

@@ -5,6 +5,7 @@
 import { S, mandarAPapelera } from "../db.js";
 import { app, fijarCtx } from "../contexto.js";
 import * as M from "../modelo.js";
+import * as PER from "../permisos.js";
 import { $, $$, esc, num, fmtARS, fmtUSD, fmtFecha, mesLabel, toast, confirmar2, cabecera, ICONOS } from "../ui.js";
 
 /* Los filtros se recuerdan mientras la app está abierta. */
@@ -21,7 +22,9 @@ export function render(el) {
   const meses = Array.from(new Set(todos.map(M.mesDe))).filter(Boolean).sort().reverse();
 
   const nombre = p ? p.nombre : ctx.tipo === "mica" ? "MICA: proyectos y estructura" : "Magna: toda la cuenta";
-  let h = cabecera("", "Movimientos", esc(nombre), `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Cargar</a>`);
+  const puedeCargar = PER.esAdmin() || (PER.esOperativo() && PER.proyectosPermitidos().length > 0);
+  let h = cabecera("", "Movimientos", esc(nombre), puedeCargar ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}${PER.esAdmin() ? "Cargar" : "Proponer gasto"}</a>` : "");
+  h += PER.avisoPendientesHtml(s => s.coleccion !== "movimientos" || conj.has((s.datos || s.anterior || {}).bolsillo));
 
   const opt = (v, t, sel) => `<option value="${esc(v)}"${v === sel ? " selected" : ""}>${esc(t)}</option>`;
   let impOpts = "";
@@ -104,6 +107,10 @@ export function render(el) {
       confirmar2(b, () => {
         const m = S.movimientos.find(x => x.id === b.dataset.borrar);
         if (!m) return;
+        if (!PER.esAdmin()) {
+          PER.proponer({ coleccion: "movimientos", accion: "baja", docId: m.id });
+          return toast("Pedido de baja enviado: Julio lo tiene que aprobar");
+        }
         mandarAPapelera("movimientos", m, app.usuario.socio);
         toast("Movimiento enviado a la papelera");
       });
@@ -139,6 +146,9 @@ function filaMov(m, ref) {
   if (m.cotizacionFuente === "aprox") tags.push(`<span class="tag tag-alerta" title="Se usó la cotización de otro día">Cotización a revisar</span>`);
   if (m.retencionesARS) tags.push(`<span class="tag tag-borde" title="Retenciones sufridas">Ret. ${esc(fmtARS(m.retencionesARS))}</span>`);
   if (m.demo) tags.push(`<span class="tag tag-borde">Ejemplo</span>`);
+  const sol = S.solicitudes.find(x => x.estado === "pendiente" && x.coleccion === "movimientos" && x.docId === m.id);
+  if (sol) tags.push(`<span class="tag tag-alerta" title="Pedido de ${esc(PER.socioNombre(sol.autor))}">${sol.accion === "baja" ? "Baja pendiente" : "Cambio pendiente"}</span>`);
+  const editable = PER.puedeEditarMov(m);
   return `<div class="mov" data-id="${esc(m.id)}"${m.certificado ? ` data-cert="${esc(m.certificado)}"` : ""} tabindex="0">
     <div class="mov-fecha">${fmtFecha(m.fecha)}</div>
     <div class="mov-cuerpo"><div class="mov-tit">${esc(M.tituloMov(m))}</div>
@@ -146,8 +156,8 @@ function filaMov(m, ref) {
     <div class="mov-ars">${interno ? `<span class="num">${fmtARS(ars)}</span>` : num(ars, fmtARS)}</div>
     <div class="mov-usd">${interno ? `<span class="num">${fmtUSD(us)}</span>` : num(us, fmtUSD)}</div>
     <div class="mov-acc">
-      <button class="btn-icono" title="Editar" aria-label="Editar">${ICONOS.editar}</button>
-      <button class="btn-icono" data-borrar="${esc(m.id)}" title="Borrar" aria-label="Borrar">${ICONOS.borrar}</button>
+      ${editable ? `<button class="btn-icono" title="${PER.esAdmin() ? "Editar" : "Proponer un cambio"}" aria-label="Editar">${ICONOS.editar}</button>
+      <button class="btn-icono" data-borrar="${esc(m.id)}" title="${PER.esAdmin() ? "Borrar" : "Pedir la baja"}" aria-label="Borrar">${ICONOS.borrar}</button>` : ""}
     </div>
   </div>`;
 }
