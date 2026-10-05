@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="img/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<title>Guía MICA Gestión</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Manual de uso: índice fijo a la izquierda en escritorio, columna de lectura de ~70 caracteres; recetas de carga con los mismos campos que el formulario de la app. */
+:root {
+  --rojo: #E1262D;
+  --rojo-tinta: #B81E24;
+  --rojo-suave: #FCEBEC;
+  --fondo: #F5F3F2;
+  --panel: #FFFFFF;
+  --tinta: #141416;
+  --tinta-2: #55565B;
+  --linea: #E2DEDD;
+  --linea-2: #CFCAC9;
+  --verde: #2E7D32;
+  --verde-suave: #E6F1E7;
+  --ambar: #8A5A00;
+  --ambar-suave: #FBF1DC;
+  --azul: #2D5B8A;
+  --azul-suave: #E7EEF6;
+  --f-titulo: "Montserrat", "Segoe UI", Arial, sans-serif;
+  --f-cuerpo: "Inter", "Segoe UI", Arial, sans-serif;
+  --f-dato: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --logo-claro: block;
+  --logo-oscuro: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --rojo: #F0444A; --rojo-tinta: #FF7A7E; --rojo-suave: #3A1B1D;
+    --fondo: #121214; --panel: #1C1C1F; --tinta: #EDEBEA; --tinta-2: #A9A7A6;
+    --linea: #2E2E32; --linea-2: #45454A;
+    --verde: #7BC47F; --verde-suave: #1A2B1B; --ambar: #E8B65A; --ambar-suave: #2E2514;
+    --azul: #8DB4DE; --azul-suave: #18232F;
+    --logo-claro: none; --logo-oscuro: block; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --rojo: #F0444A; --rojo-tinta: #FF7A7E; --rojo-suave: #3A1B1D;
+  --fondo: #121214; --panel: #1C1C1F; --tinta: #EDEBEA; --tinta-2: #A9A7A6;
+  --linea: #2E2E32; --linea-2: #45454A;
+  --verde: #7BC47F; --verde-suave: #1A2B1B; --ambar: #E8B65A; --ambar-suave: #2E2514;
+  --azul: #8DB4DE; --azul-suave: #18232F;
+  --logo-claro: none; --logo-oscuro: block; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--fondo); color: var(--tinta); font: 15.5px/1.65 var(--f-cuerpo); margin: 0; }
+a { color: var(--rojo-tinta); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--rojo); outline-offset: 2px; border-radius: 3px; }
+
+.marco { max-width: 1180px; margin: 0 auto; padding-inline: 20px; display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 900px) { .marco { grid-template-columns: minmax(0, 1fr); gap: 0; padding-inline: 16px; } }
+
+.cabeza { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 0; }
+@media (max-width: 900px) { .cabeza { padding-inline: 16px; padding-block: 20px 0; } }
+.portada img { width: 150px; height: auto; margin-bottom: 26px; }
+/* índice */
+.indice { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; max-height: 100vh; overflow-y: auto; padding-block: 28px; }
+.logo-claro { display: var(--logo-claro); } .logo-oscuro { display: var(--logo-oscuro); }
+.indice p { font: 600 11px/1 var(--f-titulo); letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-2); margin: 0 0 10px; }
+.indice ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: i; }
+.indice li a { display: grid; grid-template-columns: 24px 1fr; padding: 5px 8px; border-radius: 6px; color: var(--tinta); text-decoration: none; font-size: 13.5px; line-height: 1.35; }
+.indice li a::before { counter-increment: i; content: counter(i); font: 500 12px/1.5 var(--f-dato); color: var(--tinta-2); }
+.indice li a:hover { background: var(--panel); }
+.indice li a.clave { color: var(--rojo-tinta); font-weight: 600; }
+.indice li a.clave::before { color: var(--rojo); }
+@media (max-width: 900px) {
+  .indice { position: static; max-height: none; padding-block: 20px 0; }
+  .indice ol { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); background: var(--panel); border: 1px solid var(--linea); border-radius: 10px; padding: 8px; }
+}
+
+/* contenido */
+main { padding-block: 0 80px; min-width: 0; }
+.portada { padding-bottom: 28px; border-bottom: 1px solid var(--linea); }
+.eyebrow { font: 600 11.5px/1 var(--f-titulo); letter-spacing: .14em; text-transform: uppercase; color: var(--rojo-tinta); margin: 0 0 12px; }
+h1 { font: 800 clamp(30px, 5vw, 44px)/1.08 var(--f-titulo); letter-spacing: -.02em; margin: 0 0 14px; text-wrap: balance; }
+.bajada { font-size: 17.5px; color: var(--tinta-2); max-width: 62ch; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-size: 13px; color: var(--tinta-2); }
+.meta b { color: var(--tinta); font-weight: 600; }
+
+section.cap { padding-top: 40px; }
+h2 { font: 700 clamp(23px, 3.2vw, 29px)/1.2 var(--f-titulo); letter-spacing: -.01em; margin: 0 0 6px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .n { font: 500 15px/1 var(--f-dato); color: var(--rojo); flex: none; }
+.cap > .intro { color: var(--tinta-2); margin: 0 0 18px; max-width: 66ch; }
+h3 { font: 700 18px/1.3 var(--f-titulo); margin: 30px 0 8px; text-wrap: balance; }
+h4 { font: 600 15px/1.35 var(--f-titulo); margin: 20px 0 6px; }
+p, li { max-width: 70ch; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 22px; }
+li { margin-bottom: 5px; }
+strong { font-weight: 600; }
+.ui { font-weight: 600; white-space: nowrap; color: var(--tinta); background: var(--panel); border: 1px solid var(--linea-2); border-radius: 5px; padding: 0 6px; font-size: .92em; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* capítulo destacado */
+.destacado { position: relative; }
+.destacado .sello { display: inline-block; font: 600 11px/1 var(--f-titulo); letter-spacing: .1em; text-transform: uppercase; background: var(--rojo); color: #fff; padding: 6px 9px; border-radius: 4px; margin-bottom: 12px; }
+
+/* avisos */
+.nota { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 14px 16px; border-radius: 10px; margin: 16px 0; border: 1px solid; }
+.nota > svg { width: 20px; height: 20px; margin-top: 2px; }
+.nota p:last-child, .nota ul:last-child { margin-bottom: 0; }
+.nota-regla { background: var(--rojo-suave); border-color: color-mix(in srgb, var(--rojo) 35%, transparent); }
+.nota-regla > svg { color: var(--rojo); }
+.nota-ojo { background: var(--ambar-suave); border-color: color-mix(in srgb, var(--ambar) 35%, transparent); }
+.nota-ojo > svg { color: var(--ambar); }
+.nota-tip { background: var(--azul-suave); border-color: color-mix(in srgb, var(--azul) 30%, transparent); }
+.nota-tip > svg { color: var(--azul); }
+.nota b.t { display: block; font-family: var(--f-titulo); margin-bottom: 3px; }
+
+/* tablas */
+.tabla-env { overflow-x: auto; margin: 14px 0 18px; border: 1px solid var(--linea); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+th { font: 600 12px/1.3 var(--f-titulo); letter-spacing: .04em; text-transform: uppercase; color: var(--tinta-2); background: color-mix(in srgb, var(--fondo) 60%, var(--panel)); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.total td { font-weight: 600; border-top: 2px solid var(--linea-2); }
+td.cambio { color: var(--rojo-tinta); font-weight: 600; }
+.chico { font-size: 13px; color: var(--tinta-2); }
+
+/* recetas de carga */
+.recetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 14px; margin: 16px 0 8px; }
+.receta { background: var(--panel); border: 1px solid var(--linea); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.receta h4 { margin: 0; font-size: 15.5px; }
+.receta .cuando { margin: 0; font-size: 14px; color: var(--tinta-2); }
+.campos { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 13.5px; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--fondo) 70%, var(--panel)); }
+.campos dt { font: 500 12px/1.7 var(--f-dato); color: var(--tinta-2); }
+.campos dd { margin: 0; font-weight: 600; }
+.receta .efecto { margin: 0; font-size: 13.5px; }
+.receta .efecto b { color: var(--verde); font-weight: 600; }
+
+/* diagrama */
+.diagrama { background: var(--panel); border: 1px solid var(--linea); border-radius: 12px; padding: 16px; margin: 16px 0; overflow-x: auto; }
+.diagrama svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.diagrama .caja { fill: var(--fondo); stroke: var(--linea-2); stroke-width: 1.2; }
+.diagrama .caja-banco { fill: var(--panel); stroke: var(--tinta); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.diagrama .caja-julio { fill: var(--rojo-suave); stroke: var(--rojo); }
+.diagrama .t1 { font: 700 14px var(--f-titulo); fill: var(--tinta); }
+.diagrama .t2 { font: 400 12px var(--f-cuerpo); fill: var(--tinta-2); }
+.diagrama .t3 { font: 600 11.5px var(--f-cuerpo); fill: var(--tinta); }
+.diagrama .flecha { stroke: var(--tinta-2); stroke-width: 1.6; fill: none; }
+.diagrama .flecha-r { stroke: var(--rojo); stroke-width: 1.8; fill: none; }
+.diagrama .punta { fill: var(--tinta-2); }
+.diagrama .punta-r { fill: var(--rojo); }
+.diagrama .rot-r { font: 600 11.5px var(--f-cuerpo); fill: var(--rojo-tinta); }
+.diagrama figcaption { font-size: 13px; color: var(--tinta-2); margin-top: 10px; }
+
+/* pasos numerados (secuencias reales) */
+ol.pasos { list-style: none; padding: 0; counter-reset: p; display: grid; gap: 10px; margin: 14px 0 18px; }
+ol.pasos > li { counter-increment: p; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 12px; max-width: none; margin: 0; }
+ol.pasos > li::before { content: counter(p); font: 600 13px/28px var(--f-dato); text-align: center; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--rojo); color: var(--rojo-tinta); }
+ol.pasos > li > div { min-width: 0; padding-top: 3px; }
+ol.pasos > li p { margin: 2px 0 0; }
+
+/* rutina */
+.rutina { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 14px; margin: 16px 0; }
+.rutina > div { background: var(--panel); border: 1px solid var(--linea); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.rutina h4 { margin: 0 0 8px; display: flex; justify-content: space-between; gap: 8px; }
+.rutina h4 span { font: 500 11.5px/1.6 var(--f-dato); color: var(--tinta-2); }
+.rutina ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; font-size: 14px; }
+.rutina li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; margin: 0; }
+.rutina li::before { content: ""; width: 12px; height: 12px; border: 1.5px solid var(--linea-2); border-radius: 3px; margin-top: 5px; }
+
+details { background: var(--panel); border: 1px solid var(--linea); border-radius: 10px; padding: 0 16px; margin-bottom: 8px; }
+summary { cursor: pointer; padding: 13px 0; font-weight: 600; font-family: var(--f-titulo); font-size: 14.5px; }
+details[open] summary { border-bottom: 1px solid var(--linea); margin-bottom: 12px; }
+details > :last-child { margin-bottom: 14px; }
+
+.pie { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--linea); font-size: 13px; color: var(--tinta-2); }
+</style>
+</head>
+<body>
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-regla" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3l8 4v5c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V7l8-4z M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-ojo" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3L2 20h20L12 3z M12 10v4 M12 17.5v.01"/></symbol>
+  <symbol id="i-tip" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+</svg>
+
+<div class="cabeza">
+    <header class="portada">
+      <img class="logo-claro" src="img/logo-mica-negro.png" alt="MICA — Minería Integral Catamarca">
+      <img class="logo-oscuro" src="img/logo-mica-blanco.png" alt="MICA — Minería Integral Catamarca">
+
+      <p class="eyebrow">MICA · Gestión de proyectos</p>
+      <h1>Guía de uso para los socios</h1>
+      <p class="bajada">Cómo cargar la plata de cada obra, cómo se reparte entre los bolsillos de la cuenta de Magna y cómo dejar conciliadas las cuentas entre Magna, Julio y MICA cada mes.</p>
+      <div class="meta"><span><b>Para</b> Jeremías, Jorge, Julio y José</span><span><b>Versión de la app</b> 7</span><span><b>Moneda de análisis</b> dólar MEP</span></div>
+    </header>
+</div>
+<div class="marco">
+  <nav class="indice" aria-label="Índice">
+    <p>Contenido</p>
+    <ol>
+      <li><a href="#empezar">Entrar e instalar</a></li>
+      <li><a href="#permisos" class="clave">Permisos y aprobaciones</a></li>
+      <li><a href="#pantalla">Cómo se lee la pantalla</a></li>
+      <li><a href="#bolsillos">La cuenta y sus bolsillos</a></li>
+      <li><a href="#cargar">Cargar movimientos</a></li>
+      <li><a href="#conciliacion" class="clave">Conciliación Magna, Julio y MICA</a></li>
+      <li><a href="#proyecto">Llevar un proyecto</a></li>
+      <li><a href="#socios">Socios, préstamos y aportes</a></li>
+      <li><a href="#impuestos">Impuestos y reserva fiscal</a></li>
+      <li><a href="#cierre">Cierre de proyecto</a></li>
+      <li><a href="#base">Base de costos e IA</a></li>
+      <li><a href="#rutina">Rutina recomendada</a></li>
+      <li><a href="#preguntas">Preguntas frecuentes</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+
+    <!-- 1 -->
+    <section class="cap" id="empezar">
+      <h2><span class="n">1</span>Entrar e instalar</h2>
+      <p class="intro">La app se abre desde el navegador y funciona igual en la computadora y en el celular. Los datos se guardan en la nube y los cuatro socios ven lo mismo en el momento.</p>
+      <ol class="pasos">
+        <li><div><strong>Abrí la dirección de la app</strong><p>Julio la comparte cuando queda publicada (termina en <code>github.io</code>).</p></div></li>
+        <li><div><strong>Tocá «Entrar con Google»</strong><p>Usá tu cuenta autorizada. Solo entran los cuatro correos cargados; cualquier otro queda afuera aunque tenga el enlace.</p></div></li>
+        <li><div><strong>Instalala en el celular</strong><p>En Android, menú de Chrome → <span class="ui">Instalar app</span>. En iPhone, desde Safari: <span class="ui">Compartir</span> → <span class="ui">Agregar a inicio</span>. Queda como una app más, con el ícono de MICA.</p></div></li>
+      </ol>
+      <div class="nota nota-tip"><svg><use href="#i-tip"/></svg><div><p>Cada movimiento guarda quién lo cargó, quién lo aprobó y quién lo modificó por última vez. Lo que se borra va a la papelera, desde donde se puede recuperar.</p></div></div>
+    </section>
+
+    <!-- permisos -->
+    <section class="cap destacado" id="permisos">
+      <span class="sello">Nuevo</span>
+      <h2><span class="n">2</span>Permisos y aprobaciones</h2>
+      <p class="intro">Julio administra la app y es el único que carga y modifica directamente. Los demás socios ven toda la información y pueden proponer cambios de la parte operativa de las obras, que quedan pendientes hasta que Julio los aprueba.</p>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Permiso</th><th>Quién</th><th>Qué puede hacer</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Administrador</strong></td><td>Julio</td><td>Carga y modifica todo, configura la app y aprueba lo que proponen los demás.</td></tr>
+          <tr><td><strong>Operativo</strong></td><td>Jeremías, Jorge y José</td><td>Ve y exporta todo. Propone gastos de obra (altas, cambios y bajas) y el avance físico de cada proyecto.</td></tr>
+          <tr><td><strong>Veedor</strong></td><td>Hoy nadie</td><td>Ve y exporta todo. No propone ni modifica nada.</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Cómo funciona una carga del operativo</h3>
+      <ol class="pasos">
+        <li><div><strong>El operativo carga el gasto o el avance</strong><p>Desde <span class="ui">Cargar</span> (o leyendo la factura con IA) o desde <span class="ui">Contrato y presupuesto → Avance físico</span>. Para cambiar o borrar un gasto, lo abre en <span class="ui">Movimientos</span>.</p></div></li>
+        <li><div><strong>Queda como pedido pendiente</strong><p>No cuenta en ningún número hasta que se aprueba. El operativo lo sigue en <span class="ui">Mis cargas</span> y lo puede corregir o cancelar mientras siga pendiente.</p></div></li>
+        <li><div><strong>Julio lo revisa en Aprobaciones</strong><p>Ve quién lo pidió, cuándo y qué cambia. Lo aprueba, lo corrige antes de aprobarlo, o lo rechaza con un motivo.</p></div></li>
+        <li><div><strong>Se aplica y queda la constancia</strong><p>El movimiento queda con quién lo cargó y quién lo aprobó. Si se rechazó, el operativo ve el motivo en <span class="ui">Mis cargas</span> y puede corregirlo y volver a enviarlo.</p></div></li>
+      </ol>
+      <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><b class="t">Gastos pendientes y conciliación</b><p>Mientras un gasto está pendiente no cuenta en los saldos. Si ya se pagó del banco, el saldo de la app no coincide con el extracto hasta que Julio lo apruebe. El Tablero lo avisa y la lista del Cierre de mes marca «Sin aprobaciones pendientes» como punto a cumplir.</p></div></div>
+      <p>Cobros, certificados, pases entre bolsillos, préstamos, aportes, honorarios, impuestos, cierres y toda la configuración quedan solo para Julio. Todos pueden descargar el Excel y el respaldo desde <span class="ui">Exportar y datos</span>.</p>
+    </section>
+
+    <!-- 2 -->
+    <section class="cap" id="pantalla">
+      <h2><span class="n">3</span>Cómo se lee la pantalla</h2>
+      <p class="intro">Arriba de todo está el selector <span class="ui">Viendo</span>. Lo que elijas ahí cambia lo que muestran el Tablero, Movimientos y Socios.</p>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Viendo</th><th>Qué muestra</th><th>Para qué sirve</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Un proyecto</strong> (ej. Tres Cruces)</td><td>Solo el bolsillo de esa obra: cobros, costos, avance, socios de esa obra.</td><td>El día a día de la obra.</td></tr>
+          <tr><td><strong>MICA</strong></td><td>Todos los proyectos más MICA · Estructura.</td><td>El resultado de la sociedad y la cuenta de cada socio.</td></tr>
+          <tr><td><strong>Magna</strong></td><td>La cuenta bancaria completa, separada en bolsillos.</td><td>Conciliar con el banco y ver la posición de Julio.</td></tr>
+        </tbody>
+      </table></div>
+      <p>En la computadora el menú está a la izquierda. En el celular hay una barra abajo con <span class="ui">Tablero</span>, <span class="ui">Cargar</span>, <span class="ui">Movimientos</span> y <span class="ui">Más</span>; en <span class="ui">Más</span> están el resto de las pantallas.</p>
+      <p>Las pantallas del proyecto (<span class="ui">Contrato y presupuesto</span>, <span class="ui">Certificados</span>, <span class="ui">Seguimiento</span>, <span class="ui">Cierre de mes</span>, <span class="ui">Cierre de proyecto</span>) piden tener un proyecto elegido en <span class="ui">Viendo</span>.</p>
+    </section>
+
+    <!-- 3 -->
+    <section class="cap" id="bolsillos">
+      <h2><span class="n">4</span>La cuenta y sus bolsillos</h2>
+      <p class="intro">MICA no tiene cuenta bancaria propia: opera con la cuenta de Magna Desarrollos SRL, cuyo titular es Julio. Para no mezclar la plata, la app divide esa única cuenta en bolsillos.</p>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Bolsillo</th><th>De quién es la plata</th><th>Qué entra y qué sale</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Magna · Julio</strong></td><td>De Julio, como titular de Magna.</td><td>Su saldo propio, los gastos de la SRL, lo que presta o aporta a MICA y lo que MICA le devuelve.</td></tr>
+          <tr><td><strong>Magna · Reserva fiscal</strong></td><td>Apartada para impuestos.</td><td>Entra lo que cada proyecto reserva; salen los pagos de IVA, Ganancias, IIBB.</td></tr>
+          <tr><td><strong>MICA · Estructura</strong></td><td>De los cuatro socios.</td><td>Gastos comunes de MICA que no son de una obra, y la parte de estructura que aporta cada proyecto.</td></tr>
+          <tr><td><strong>Proyecto · (nombre)</strong></td><td>Del proyecto, según la participación de cada socio.</td><td>Cobros del cliente, costos de obra, préstamos y aportes recibidos.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="nota nota-regla"><svg><use href="#i-regla"/></svg><div><b class="t">La regla que sostiene todo</b><p>La suma de todos los bolsillos tiene que ser igual al saldo que muestra el banco. Si no da, falta cargar algo o algo está mal cargado.</p></div></div>
+      <h3>Pesos y dólares</h3>
+      <p>Todo se carga en pesos, que es lo que pasa por el banco. Al guardar, la app toma el <strong>dólar MEP del día</strong> del movimiento y lo deja congelado. Así cada gasto y cada cobro queda valuado en dólares de su fecha, y los resultados, préstamos y repartos entre socios se calculan en dólares aunque la plata se mueva en pesos.</p>
+      <p>La cotización se completa sola. Si la fecha es feriado se usa el último día hábil, y si no hay dato la app avisa para que la revises. Siempre se puede corregir a mano.</p>
+    </section>
+
+    <!-- 4 -->
+    <section class="cap" id="cargar">
+      <h2><span class="n">5</span>Cargar movimientos</h2>
+      <p class="intro">Todo pasa por <span class="ui">Cargar</span>. Hay tres tipos de movimiento, y elegir bien el tipo es lo que mantiene las cuentas en orden. Los operativos ven solo el formulario de gasto de obra, que se envía para aprobación.</p>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Tipo</th><th>Qué es</th><th>Cambia el saldo del banco</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Gasto</strong></td><td>Plata que sale de la cuenta: un proveedor, un sueldo, un impuesto, un pago a un socio.</td><td>Sí, baja.</td></tr>
+          <tr><td><strong>Ingreso</strong></td><td>Plata que entra a la cuenta: un cobro, un anticipo, un aporte o préstamo de un socio desde afuera.</td><td>Sí, sube.</td></tr>
+          <tr><td><strong>Pase entre bolsillos</strong></td><td>Plata que cambia de dueño dentro de la misma cuenta: un préstamo de Magna a una obra, una reserva de impuestos, un reintegro.</td><td>No. Solo cambia de bolsillo.</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Un gasto, paso a paso</h3>
+      <ol class="pasos">
+        <li><div><strong>Fecha y monto en pesos</strong><p>El monto es el que salió del banco, IVA incluido.</p></div></li>
+        <li><div><strong>Bolsillo</strong><p>Por defecto es el del proyecto que estás viendo. Elegí el de la obra si el gasto es de la obra, Estructura si es común de MICA, Magna · Julio si es de la SRL.</p></div></li>
+        <li><div><strong>Proveedor, ítem del presupuesto y tipo de costo</strong><p>El ítem permite comparar el gasto contra lo cotizado. El tipo (Materiales, Mano de obra, Equipos, Subcontratos, Indirectos) alimenta los gráficos.</p></div></li>
+        <li><div><strong>Comprobante</strong><p>Factura A con su alícuota de IVA, factura B/C o sin factura. El IVA de la factura A se separa solo: no es costo y suma crédito fiscal.</p></div></li>
+      </ol>
+      <div class="nota nota-tip"><svg><use href="#i-tip"/></svg><div><b class="t">Leer la factura con IA</b><p>Arriba del formulario podés subir la foto o el PDF de la factura. La IA completa proveedor, fecha, monto, IVA y comprobante; revisalo y guardá. Necesita la clave de IA cargada en <span class="ui">Ajustes → Impuestos e IA</span>, en cada dispositivo.</p></div></div>
+    </section>
+
+    <!-- 5 CONCILIACIÓN -->
+    <section class="cap destacado" id="conciliacion">
+      <span class="sello">Capítulo clave</span>
+      <h2><span class="n">6</span>Conciliación entre Magna, Julio y MICA</h2>
+      <p class="intro">Como MICA usa la cuenta de Magna, la plata de Julio y la de la sociedad conviven en el mismo banco. Conciliar es asegurarse de que cada peso esté en el bolsillo correcto y de que quede registrado quién le debe a quién.</p>
+
+      <h3>Qué se concilia</h3>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Control</th><th>Pregunta que responde</th><th>Dónde se ve</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Banco contra app</strong></td><td>¿La suma de los bolsillos es igual al saldo del banco?</td><td>Viendo Magna → Tablero → <span class="ui">Saldo de la cuenta</span></td></tr>
+          <tr><td><strong>Magna/Julio contra MICA</strong></td><td>¿Cuánto le debe MICA a Julio por préstamos, gastos de la SRL y aportes?</td><td>Viendo Magna → Socios → <span class="ui">Posición de Julio</span></td></tr>
+          <tr><td><strong>Cada socio contra MICA</strong></td><td>¿Cuánto tiene a favor cada socio entre aportes, préstamos, honorarios y resultado?</td><td>Viendo MICA → Socios → <span class="ui">Cuenta de cada socio</span></td></tr>
+        </tbody>
+      </table></div>
+
+      <figure class="diagrama">
+        <svg viewBox="0 0 760 330" role="img" aria-labelledby="dg-t">
+          <title id="dg-t">Circuitos de plata entre los bolsillos de la cuenta de Magna</title>
+          <defs>
+            <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="punta" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="mr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="punta-r" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <rect class="caja-banco" x="6" y="6" width="748" height="318" rx="14"/>
+          <text class="t2" x="22" y="28">Cuenta bancaria de Magna Desarrollos SRL · la suma de los cuatro bolsillos = saldo del banco</text>
+
+          <rect class="caja caja-julio" x="30" y="60" width="200" height="74" rx="10"/>
+          <text class="t1" x="46" y="90">Magna · Julio</text>
+          <text class="t2" x="46" y="112">Plata propia de Julio</text>
+
+          <rect class="caja" x="530" y="60" width="200" height="74" rx="10"/>
+          <text class="t1" x="546" y="90">Proyecto · Tres Cruces</text>
+          <text class="t2" x="546" y="112">Cobros y costos de la obra</text>
+
+          <rect class="caja" x="30" y="224" width="200" height="74" rx="10"/>
+          <text class="t1" x="46" y="254">MICA · Estructura</text>
+          <text class="t2" x="46" y="276">Gastos comunes de MICA</text>
+
+          <rect class="caja" x="530" y="224" width="200" height="74" rx="10"/>
+          <text class="t1" x="546" y="254">Magna · Reserva fiscal</text>
+          <text class="t2" x="546" y="276">Para pagar impuestos</text>
+
+          <!-- Julio -> proyecto: préstamo -->
+          <path class="flecha-r" d="M232,80 L528,80" marker-end="url(#mr)"/>
+          <text class="rot-r" x="300" y="72">Préstamo (con tasa) · Aporte</text>
+          <!-- proyecto -> Julio: devolución, honorarios, distribución -->
+          <path class="flecha-r" d="M528,114 L232,114" marker-end="url(#mr)"/>
+          <text class="rot-r" x="262" y="132">Devolución · Honorarios · Distribución a Julio</text>
+          <!-- proyecto -> reserva -->
+          <path class="flecha" d="M630,136 L630,222" marker-end="url(#m)"/>
+          <text class="t3" x="620" y="184" text-anchor="end">Reserva de impuestos</text>
+          <!-- proyecto -> estructura -->
+          <path class="flecha" d="M560,136 C 480,200 330,230 232,246" marker-end="url(#m)"/>
+          <text class="t3" x="300" y="196">Parte de estructura</text>
+          <!-- estructura -> julio -->
+          <path class="flecha-r" d="M120,222 L120,136" marker-end="url(#mr)"/>
+          <text class="rot-r" x="130" y="172">Reintegro de</text>
+          <text class="rot-r" x="130" y="188">gastos de Magna</text>
+        </svg>
+        <figcaption>Todos estos movimientos son <strong>pases entre bolsillos</strong>: no cambian el saldo del banco. Las flechas rojas son las que mueven la cuenta entre Julio y MICA.</figcaption>
+      </figure>
+
+      <h3>Los circuitos entre Julio y MICA, y cómo cargar cada uno</h3>
+      <p>Cada situación tiene una sola forma correcta de cargarse. Las recetas muestran los campos tal cual aparecen en <span class="ui">Cargar</span>.</p>
+
+      <div class="recetas">
+        <article class="receta">
+          <h4>Magna le presta plata a una obra</h4>
+          <p class="cuando">La obra necesita pagar y todavía no cobró. La plata sale del saldo de Julio.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Pase entre bolsillos</dd><dt>Clase</dt><dd>Préstamo</dd><dt>Desde</dt><dd>Magna · Julio</dd><dt>Hacia</dt><dd>Proyecto · (obra)</dd><dt>Tasa</dt><dd>Anual en dólares, ej. 8 %</dd></dl>
+          <p class="efecto"><b>Efecto:</b> la obra le debe a Julio el capital en dólares más el interés compuesto día a día. El interés es costo de la obra.</p>
+        </article>
+        <article class="receta">
+          <h4>La obra le devuelve a Magna</h4>
+          <p class="cuando">La obra cobró y cancela todo o parte del préstamo.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Pase entre bolsillos</dd><dt>Clase</dt><dd>Devolución de préstamo</dd><dt>Desde</dt><dd>Proyecto · (obra)</dd><dt>Hacia</dt><dd>Magna · Julio</dd></dl>
+          <p class="efecto"><b>Efecto:</b> paga primero el interés y después el capital, empezando por el préstamo más viejo.</p>
+        </article>
+        <article class="receta">
+          <h4>Magna paga un gasto de la SRL que es de MICA</h4>
+          <p class="cuando">Contadora de la SRL, CASEMICA u otros gastos que existen porque Magna es la razón social de MICA.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Gasto</dd><dt>Bolsillo</dt><dd>Magna · Julio</dd><dt>Categoría</dt><dd>Contadora, CASEMICA…</dd><dt>Marcar</dt><dd>Gasto recuperable</dd></dl>
+          <p class="efecto"><b>Efecto:</b> suma en <span class="ui">A reintegrar a Julio</span> y se reparte como costo entre los proyectos según lo cobrado por cada uno.</p>
+        </article>
+        <article class="receta">
+          <h4>MICA le reintegra esos gastos a Julio</h4>
+          <p class="cuando">Hay saldo en Estructura y se cancela lo pendiente.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Pase entre bolsillos</dd><dt>Clase</dt><dd>Reintegro a Julio de gastos de Magna</dd><dt>Desde</dt><dd>MICA · Estructura</dd><dt>Hacia</dt><dd>Magna · Julio</dd></dl>
+          <p class="efecto"><b>Efecto:</b> baja <span class="ui">A reintegrar a Julio</span>. No es costo: el costo ya se contó cuando se cargó el gasto.</p>
+        </article>
+        <article class="receta">
+          <h4>Julio aporta capital desde Magna</h4>
+          <p class="cuando">Capital para arrancar una obra, sin interés, que se devuelve al cierre.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Pase entre bolsillos</dd><dt>Clase</dt><dd>Aporte de un socio</dd><dt>Desde</dt><dd>Magna · Julio</dd><dt>Hacia</dt><dd>Proyecto u Estructura</dd><dt>Socio</dt><dd>Julio</dd></dl>
+          <p class="efecto"><b>Efecto:</b> queda como aporte de Julio en dólares del día. Se devuelve en el paso 3 de la liquidación.</p>
+        </article>
+        <article class="receta">
+          <h4>La obra le paga a Julio honorarios o resultado</h4>
+          <p class="cuando">Honorarios acordados o distribución del resultado, que quedan en Magna porque es la cuenta de Julio.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Pase entre bolsillos</dd><dt>Clase</dt><dd>Pago de honorarios a Julio · Distribución de resultado</dd><dt>Desde</dt><dd>Proyecto · (obra)</dd><dt>Hacia</dt><dd>Magna · Julio</dd></dl>
+          <p class="efecto"><b>Efecto:</b> baja lo que Julio tiene a favor en la obra. A los otros socios se les paga con un <strong>gasto</strong> de la clase correspondiente, porque la plata sale del banco.</p>
+        </article>
+        <article class="receta">
+          <h4>Julio retira plata propia</h4>
+          <p class="cuando">Julio saca de la cuenta plata que es suya, no de MICA.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Gasto</dd><dt>Clase</dt><dd>Retiro del titular de Magna</dd><dt>Bolsillo</dt><dd>Magna · Julio</dd></dl>
+          <p class="efecto"><b>Efecto:</b> baja el bolsillo de Julio y el banco. No toca nada de MICA.</p>
+        </article>
+        <article class="receta">
+          <h4>Un proyecto reserva impuestos</h4>
+          <p class="cuando">Después de cobrar, se aparta lo que corresponde a IVA, IIBB, cheque y Ganancias.</p>
+          <dl class="campos"><dt>Tipo</dt><dd>Pase entre bolsillos</dd><dt>Clase</dt><dd>Reserva de impuestos</dd><dt>Desde</dt><dd>Proyecto · (obra)</dd><dt>Hacia</dt><dd>Magna · Reserva fiscal</dd></dl>
+          <p class="efecto"><b>Efecto:</b> la plata queda apartada. El monto sugerido aparece en <span class="ui">Impuestos → Reservar</span>.</p>
+        </article>
+      </div>
+
+      <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><b class="t">El error más común</b><p>Pagar un gasto de la obra cuando la obra no tiene plata. La app lo permite, pero el bolsillo del proyecto queda en negativo: la obra usó plata de otro bolsillo, casi siempre la de Julio. Siempre que pase, cargá un <strong>préstamo</strong> de Magna · Julio a la obra por la diferencia. Si no, Julio financia la obra sin que quede registrado ni genere interés.</p></div></div>
+
+      <h3>Ejemplo completo: un mes de Tres Cruces</h3>
+      <p>Arranca con $21.000.000 de Julio en la cuenta. Seguí cómo cambia cada bolsillo y fijate que la suma siempre coincide con el banco.</p>
+      <div class="tabla-env"><table>
+        <thead><tr><th>#</th><th>Movimiento</th><th>Tipo</th><th class="n">MEP</th><th class="n">Julio</th><th class="n">Tres Cruces</th><th class="n">Reserva</th><th class="n">Estructura</th><th class="n">Banco</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>Saldo inicial de Magna</td><td>Ingreso</td><td class="n">1.400</td><td class="n cambio">21.000.000</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">21.000.000</td></tr>
+          <tr><td>1</td><td>Préstamo de Magna a la obra, 8 % anual (USD 10.000)</td><td>Pase</td><td class="n">1.400</td><td class="n cambio">7.000.000</td><td class="n cambio">14.000.000</td><td class="n">0</td><td class="n">0</td><td class="n">21.000.000</td></tr>
+          <tr><td>2</td><td>Pago a proveedor de la obra</td><td>Gasto</td><td class="n">1.400</td><td class="n">7.000.000</td><td class="n cambio">4.200.000</td><td class="n">0</td><td class="n">0</td><td class="n cambio">11.200.000</td></tr>
+          <tr><td>3</td><td>Contadora de la SRL, recuperable (USD 300)</td><td>Gasto</td><td class="n">1.400</td><td class="n cambio">6.580.000</td><td class="n">4.200.000</td><td class="n">0</td><td class="n">0</td><td class="n cambio">10.780.000</td></tr>
+          <tr><td>4</td><td>Cobro del certificado 1 (USD 20.000)</td><td>Ingreso</td><td class="n">1.450</td><td class="n">6.580.000</td><td class="n cambio">33.200.000</td><td class="n">0</td><td class="n">0</td><td class="n cambio">39.780.000</td></tr>
+          <tr><td>5</td><td>Reserva de impuestos</td><td>Pase</td><td class="n">1.450</td><td class="n">6.580.000</td><td class="n cambio">27.400.000</td><td class="n cambio">5.800.000</td><td class="n">0</td><td class="n">39.780.000</td></tr>
+          <tr><td>6</td><td>Parte de estructura a cuenta (USD 1.000)</td><td>Pase</td><td class="n">1.450</td><td class="n">6.580.000</td><td class="n cambio">25.950.000</td><td class="n">5.800.000</td><td class="n cambio">1.450.000</td><td class="n">39.780.000</td></tr>
+          <tr><td>7</td><td>Reintegro a Julio de la contadora (USD 300)</td><td>Pase</td><td class="n">1.450</td><td class="n cambio">7.015.000</td><td class="n">25.950.000</td><td class="n">5.800.000</td><td class="n cambio">1.015.000</td><td class="n">39.780.000</td></tr>
+          <tr><td>8</td><td>Devolución a Magna (USD 10.000)</td><td>Pase</td><td class="n">1.450</td><td class="n cambio">21.515.000</td><td class="n cambio">11.450.000</td><td class="n">5.800.000</td><td class="n">1.015.000</td><td class="n">39.780.000</td></tr>
+          <tr class="total"><td></td><td colspan="3">Suma de bolsillos al final</td><td class="n" colspan="4">21.515.000 + 11.450.000 + 5.800.000 + 1.015.000</td><td class="n">39.780.000</td></tr>
+        </tbody>
+      </table></div>
+      <p class="chico">Montos en pesos. En rojo, lo que cambia en cada paso. Solo los gastos y los ingresos mueven el saldo del banco; los pases solo mueven plata entre bolsillos.</p>
+      <p>Lo que hay que mirar en el ejemplo:</p>
+      <ul>
+        <li><strong>Paso 7.</strong> La contadora costó USD 300 a un MEP de 1.400. Si se le reintegran los mismos $420.000 con el dólar a 1.450, Julio recupera solo USD 290 y la app le sigue mostrando USD 10 a favor. Para cancelar en limpio, reintegrá el equivalente en dólares: USD 300 × 1.450 = $435.000.</li>
+        <li><strong>Paso 8.</strong> La obra devolvió USD 10.000, el mismo capital. Como la devolución paga primero el interés acumulado, queda un saldo chico de capital pendiente con Julio, que se cancela en la siguiente devolución o en el cierre.</li>
+        <li><strong>Paso 6.</strong> Pasar a cuenta la parte de estructura durante la obra es opcional. Al liquidar, el paso 5 calcula lo que le toca al proyecto y descuenta lo que ya se pasó.</li>
+      </ul>
+
+      <h3>Conciliación mensual con el banco</h3>
+      <ol class="pasos">
+        <li><div><strong>Bajá el extracto del banco del mes</strong><p>Necesitás el saldo final y la lista de movimientos.</p></div></li>
+        <li><div><strong>Elegí Viendo → Magna y abrí el Tablero</strong><p>Compará <span class="ui">Saldo de la cuenta</span> con el saldo final del extracto.</p></div></li>
+        <li><div><strong>Si no coincide, buscá la diferencia en Movimientos</strong><p>Filtrá por mes y recorré el extracto línea por línea. Las diferencias típicas son comisiones e impuestos al cheque sin cargar, un cobro con retenciones cargado por el bruto, o un gasto cargado dos veces.</p></div></li>
+        <li><div><strong>Revisá los avisos del Tablero</strong><p>Bolsillos en negativo, cuenta negativa o préstamos sin tasa. Cada aviso trae un botón para corregirlo.</p></div></li>
+        <li><div><strong>Revisá la posición de Julio</strong><p>Viendo Magna → <span class="ui">Socios</span>: préstamos dados con su interés, gastos a reintegrar, aportes hechos desde Magna. Si hay saldo en Estructura, cargá el reintegro pendiente.</p></div></li>
+        <li><div><strong>Cerrá el mes de cada obra</strong><p>En <span class="ui">Cierre de mes</span> la lista de control marca lo que falta (gastos habituales, avance, certificados, reserva) y genera el informe para los socios.</p></div></li>
+      </ol>
+      <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><b class="t">Cobros con retenciones</b><p>Cargá el cobro por lo que <strong>acreditó el banco</strong> y las retenciones en su campo. Así el bolsillo coincide con el banco y las retenciones quedan registradas como pago a cuenta de impuestos.</p></div></div>
+
+      <h3>Avisos y qué hacer con cada uno</h3>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Aviso</th><th>Qué significa</th><th>Qué cargar</th></tr></thead>
+        <tbody>
+          <tr><td><strong>El bolsillo del proyecto está en negativo</strong></td><td>La obra gastó más de lo que tenía y usó plata de otro bolsillo.</td><td>Pase → Préstamo desde Magna · Julio (o desde quien puso la plata).</td></tr>
+          <tr><td><strong>La cuenta da negativa</strong> o <strong>Magna · Julio da negativo</strong></td><td>Falta el saldo que tenía la cuenta al empezar a usar la app.</td><td>Ingreso → Saldo inicial en Magna · Julio, a la fecha de arranque.</td></tr>
+          <tr><td><strong>Préstamo sin tasa</strong></td><td>El préstamo no genera interés.</td><td>Tocá el préstamo en Socios y cargale la tasa anual en dólares.</td></tr>
+          <tr><td><strong>A reintegrar a Julio</strong> mayor que cero</td><td>Hay gastos recuperables de Magna que MICA todavía no devolvió.</td><td>Pase → Reintegro desde MICA · Estructura, cuando haya saldo.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Si un socio paga con plata de su bolsillo</h3>
+      <p>A veces un socio paga algo de la obra con su tarjeta o su cuenta personal. Esa plata no pasa por el banco de Magna, así que no puede ir en la cuenta de Magna sin romper la conciliación.</p>
+      <ol class="pasos">
+        <li><div><strong>Creá una cuenta «Pagos de socios»</strong><p>En <span class="ui">Ajustes → Cuentas</span>, tipo Efectivo. Se hace una sola vez.</p></div></li>
+        <li><div><strong>Cargá el ingreso del socio en esa cuenta</strong><p>Ingreso → Aporte o Préstamo de un socio, en el bolsillo de la obra.</p></div></li>
+        <li><div><strong>Cargá el gasto en la misma cuenta</strong><p>Con el mismo monto. La cuenta «Pagos de socios» queda en cero y el banco de Magna no se toca.</p></div></li>
+      </ol>
+    </section>
+
+    <!-- 6 -->
+    <section class="cap" id="proyecto">
+      <h2><span class="n">7</span>Llevar un proyecto</h2>
+      <p class="intro">El ciclo de una obra en la app va del contrato a la liquidación. Estas son las pantallas, en el orden en que se usan.</p>
+      <h3>Alta del proyecto</h3>
+      <p>En <span class="ui">Ajustes → Proyectos</span>: nombre, código, cliente, ubicación, monto del contrato, anticipo y cómo se amortiza, fondo de reparo, plazo de pago, fechas, IVA y retenciones que aplica el cliente, participación de cada socio y acuerdos de honorarios.</p>
+      <h3>Contrato y presupuesto</h3>
+      <ul>
+        <li><strong>Ítems de la cotización:</strong> se cargan a mano o se importan desde el Excel de la planilla de cotización. Cada ítem lleva unidad, cantidad, precio y su costo cotizado por tipo.</li>
+        <li><strong>Línea base:</strong> congela el presupuesto aprobado para comparar contra él durante toda la obra.</li>
+        <li><strong>Avance físico del mes:</strong> cantidad ejecutada de cada ítem. Es la base para certificar y para la curva S.</li>
+      </ul>
+      <h3>Certificados y cobranza</h3>
+      <ol class="pasos">
+        <li><div><strong>Nuevo certificado</strong><p>La app propone el avance físico que falta certificar. Calcula la amortización del anticipo y la retención del fondo de reparo.</p></div></li>
+        <li><div><strong>Factura</strong><p>Número, fecha y vencimiento. El saldo a cobrar incluye IVA.</p></div></li>
+        <li><div><strong>Cobro</strong><p>Por lo acreditado en el banco, con sus retenciones. Las facturas vencidas aparecen marcadas en el menú.</p></div></li>
+      </ol>
+      <h3>Seguimiento</h3>
+      <p>Curva S de avance planificado contra real, proyección del costo final por rubro y desvío por ítem. Sirve para ver temprano si la obra va a cerrar por encima de lo cotizado.</p>
+      <h3>Cierre de mes</h3>
+      <p>Lista de control del mes con lo que falta cargar, el mes en números (cobrado, costos y diferencia) y un informe redactado con IA para mandar a los socios. Revisalo antes de enviarlo.</p>
+    </section>
+
+    <!-- 7 -->
+    <section class="cap" id="socios">
+      <h2><span class="n">8</span>Socios, préstamos y aportes</h2>
+      <p class="intro">La pantalla <span class="ui">Socios</span> responde cuánto tiene a favor cada uno si la obra se liquidara hoy. Todo está en dólares MEP.</p>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Columna</th><th>Qué es</th><th>Cuándo se cobra</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Aportes</strong></td><td>Capital que puso el socio, sin interés.</td><td>Se devuelve al cierre, en dólares del día del aporte.</td></tr>
+          <tr><td><strong>Préstamos</strong></td><td>Plata prestada a la obra, con su tasa anual en dólares e interés compuesto diario.</td><td>Cuando la obra devuelve, o en el cierre.</td></tr>
+          <tr><td><strong>Honorarios</strong></td><td>Lo acordado por trabajo del socio en la obra: monto fijo por mes, monto único o un porcentaje de la mano de obra, de los costos o de lo cobrado en el mes. Es costo de la obra.</td><td>Al cierre. Se puede adelantar a cuenta.</td></tr>
+          <tr><td><strong>Resultado</strong></td><td>Su parte del resultado neto de impuestos y estructura, según la participación.</td><td>Al cierre.</td></tr>
+          <tr><td><strong>Distribuido</strong></td><td>Lo que ya se le pagó (resultado, honorarios o aportes devueltos).</td><td>Resta.</td></tr>
+          <tr><td><strong>A favor</strong></td><td>Aportes + Préstamos + Honorarios + Resultado − Distribuido.</td><td>Lo que le correspondería hoy.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Viendo <strong>MICA</strong>, la misma tabla suma todas las obras y Estructura. En la fila de Julio aparece además lo que MICA le debe por gastos de Magna a reintegrar.</p>
+      <div class="nota nota-tip"><svg><use href="#i-tip"/></svg><div><p><strong>Préstamo o aporte.</strong> Préstamo cuando la plata debe volver con interés y antes que el resultado. Aporte cuando es capital de riesgo sin interés. Si dudan, conviene acordarlo entre los cuatro antes de cargarlo.</p></div></div>
+    </section>
+
+    <!-- 8 -->
+    <section class="cap" id="impuestos">
+      <h2><span class="n">9</span>Impuestos y reserva fiscal</h2>
+      <p class="intro">La pantalla <span class="ui">Impuestos</span> estima lo que va a costar cada obra en impuestos y cuánto hay que apartar.</p>
+      <ul>
+        <li><strong>Tres resultados:</strong> operativo, impositivo y neto. El impositivo no deduce gastos sin factura ni honorarios e intereses entre socios, por eso los gastos sin factura generan Ganancias extra. El neto es lo que se puede repartir.</li>
+        <li><strong>Reserva fiscal:</strong> muestra lo que el proyecto debería haber pasado a Magna · Reserva fiscal y lo que falta. El botón <span class="ui">Reservar</span> abre el pase con el monto sugerido.</li>
+        <li><strong>IVA por mes</strong> y <strong>retenciones sufridas</strong>, para controlar con la contadora.</li>
+        <li><strong>Pagos de impuestos:</strong> se cargan como gasto del bolsillo Magna · Reserva fiscal.</li>
+      </ul>
+      <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><p>Las tasas (Ganancias, IIBB, impuesto al cheque) se configuran en <span class="ui">Ajustes → Impuestos e IA</span> y son estimaciones. Conviene validarlas con la contadora de Magna.</p></div></div>
+    </section>
+
+    <!-- 9 -->
+    <section class="cap" id="cierre">
+      <h2><span class="n">10</span>Cierre de proyecto</h2>
+      <p class="intro">Cuando la obra termina y está cobrada, <span class="ui">Cierre de proyecto</span> arma la liquidación completa en seis pasos, siempre en este orden.</p>
+      <ol class="pasos">
+        <li><div><strong>Reservar los impuestos</strong><p>IVA, IIBB, cheque y Ganancias pendientes, a Magna · Reserva fiscal.</p></div></li>
+        <li><div><strong>Devolver los préstamos con su interés</strong><p>A cada prestamista, lo prestado más el interés hasta la fecha de liquidación.</p></div></li>
+        <li><div><strong>Devolver los aportes</strong><p>En dólares del día de cada aporte.</p></div></li>
+        <li><div><strong>Pagar los honorarios</strong><p>Lo acordado que no se haya pagado a cuenta.</p></div></li>
+        <li><div><strong>Cubrir la parte de estructura y de Magna</strong><p>Lo que le toca al proyecto según lo cobrado. Va a MICA · Estructura, que después le reintegra a Julio los gastos de Magna.</p></div></li>
+        <li><div><strong>Repartir o reinvertir el resultado</strong><p>Lo que queda, según la participación. Se puede dejar en Estructura como capital reinvertido de cada socio.</p></div></li>
+      </ol>
+      <p>Elegí la fecha y el dólar de la liquidación, revisá cada paso y tocá registrar: la app genera todos los movimientos. Después tocá <span class="ui">Cerrar el proyecto</span>. Con el proyecto cerrado, los intereses y honorarios dejan de correr y su parte de estructura queda fija. Si hace falta corregir algo, se puede reabrir.</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="cap" id="base">
+      <h2><span class="n">11</span>Base de costos e IA</h2>
+      <h3>Base de costos</h3>
+      <p>Al cerrar una obra, cada ítem pasa a una ficha con su costo real por unidad, el cotizado, el desvío y los rendimientos. Con el tiempo es la referencia para cotizar: al cargar un ítem en un presupuesto nuevo, la app muestra los antecedentes parecidos. También se pueden cargar fichas a mano de obras anteriores e importar o exportar en Excel.</p>
+      <h3>Preguntar</h3>
+      <p>Una consulta en lenguaje natural sobre los datos: «¿cuánto gastamos en combustible en Tres Cruces en septiembre?» o «¿cuánto le debe la obra a Magna?». La IA responde con los datos cargados. Necesita la clave de IA en el dispositivo.</p>
+    </section>
+
+    <!-- 11 -->
+    <section class="cap" id="rutina">
+      <h2><span class="n">12</span>Rutina recomendada</h2>
+      <p class="intro">Si se carga al día, la conciliación de fin de mes lleva minutos.</p>
+      <div class="rutina">
+        <div><h4>Cada vez que se paga o se cobra <span>al momento</span></h4><ul>
+          <li>Cargar el gasto o cobro con la factura (con IA, desde el celular). Los operativos lo envían para aprobación.</li>
+          <li>Si el bolsillo de la obra queda negativo, cargar el préstamo de Magna.</li>
+          <li>Gastos de la SRL: marcarlos como recuperables.</li>
+        </ul></div>
+        <div><h4>Cada semana <span>15 minutos</span></h4><ul>
+          <li>Julio: revisar y aprobar lo pendiente en Aprobaciones.</li>
+          <li>Cargar el avance físico de la obra.</li>
+          <li>Revisar facturas vencidas en Certificados.</li>
+          <li>Reservar impuestos de lo cobrado.</li>
+        </ul></div>
+        <div><h4>Cada mes <span>primeros días</span></h4><ul>
+          <li>Conciliar el saldo con el extracto del banco.</li>
+          <li>Revisar la posición de Julio y cargar reintegros.</li>
+          <li>Completar el Cierre de mes y mandar el informe.</li>
+          <li>Bajar un respaldo en Ajustes → Datos.</li>
+        </ul></div>
+        <div><h4>Al terminar la obra <span>una vez</span></h4><ul>
+          <li>Cobrar todo, incluido el fondo de reparo.</li>
+          <li>Liquidar los seis pasos y cerrar el proyecto.</li>
+          <li>Revisar las fichas que pasan a la base de costos.</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="cap" id="preguntas">
+      <h2><span class="n">13</span>Preguntas frecuentes</h2>
+      <details><summary>Cargué un movimiento mal, ¿cómo lo corrijo?</summary><p>Si todavía está pendiente, corregilo desde <span class="ui">Mis cargas</span>. Si ya está aprobado, abrilo en <span class="ui">Movimientos</span> y proponé el cambio: vuelve a pasar por la aprobación de Julio. Lo que se borra va a la papelera y se puede recuperar.</p></details>
+      <details><summary>¿Cómo me entero de que Julio aprobó o rechazó lo que cargué?</summary><p>En <span class="ui">Mis cargas</span> cada pedido muestra su estado. Si te rechazan uno, aparece un número en el menú y el motivo en el pedido. No llegan notificaciones al celular: se ve al abrir la app.</p></details>
+      <details><summary>¿Por qué un pase no cambia el saldo de la cuenta?</summary><p>Porque la plata no sale del banco: pasa de un bolsillo a otro dentro de la misma cuenta de Magna. Por eso los préstamos, reservas y reintegros se cargan como pases y no como gasto más ingreso.</p></details>
+      <details><summary>¿Por qué los resultados están en dólares si todo se paga en pesos?</summary><p>Para que la inflación no distorsione el resultado. Cada movimiento queda valuado al MEP de su fecha, entonces un gasto de marzo y un cobro de septiembre se comparan en la misma moneda.</p></details>
+      <details><summary>¿Quién decide la tasa de un préstamo?</summary><p>Los socios, al momento de prestar. Se carga en el préstamo y se puede cambiar después tocándolo en Socios. Cada préstamo puede tener su propia tasa.</p></details>
+      <details><summary>¿Cómo se reparten los gastos de Estructura y de Magna entre las obras?</summary><p>En proporción a lo cobrado por cada obra. Cuando una obra se cierra, su parte queda fija y lo que se gaste después se reparte entre las obras que siguen abiertas.</p></details>
+      <details><summary>¿Se pierden los datos si se rompe el celular?</summary><p>No. Los datos están en la nube y se ven desde cualquier dispositivo al entrar con la misma cuenta. Lo único que se guarda en cada dispositivo es la clave de IA.</p></details>
+      <details><summary>¿Puedo usar la app sin conexión?</summary><p>Para entrar hace falta conexión. Si se corta la señal con la app abierta, lo que cargues queda guardado en el dispositivo y se sube solo cuando vuelve la conexión. Hasta entonces los demás socios no lo ven.</p></details>
+    </section>
+
+    <footer class="pie">MICA — Minería Integral Catamarca · Guía de uso de MICA Gestión, versión 7 · Octubre 2026. Ante cualquier duda sobre cómo cargar algo, preguntale a Julio antes de inventar una forma nueva: una sola forma de cargar cada cosa es lo que mantiene las cuentas conciliadas.</footer>
+  </main>
+</div>
+
+</body>
+</html>
