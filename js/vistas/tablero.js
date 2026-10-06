@@ -66,7 +66,7 @@ function tableroProyecto(el, p) {
 
   h += `<div class="grid-2">
     <section class="panel"><div class="panel-cab"><div><h2>Avance de obra</h2><p class="panel-sub">Cuánto se ejecutó contra cuánto se gastó.</p></div><a class="btn btn-fant btn-chico" href="#seguimiento">Seguimiento</a></div>${panelAvance(sg)}</section>
-    <section class="panel"><div class="panel-cab"><div><h2>Costos por tipo</h2><p class="panel-sub">En dólares MEP.</p></div></div>${barrasHorizontales(M.TIPOS_COSTO.concat(["Sin tipo"]).map(t => ({ rotulo: t, valor: r.porTipo[t] || 0 })).filter(f => f.valor > 0), v => fmtUSD(v))}</section>
+    <section class="panel"><div class="panel-cab"><div><h2>Costos por categoría</h2><p class="panel-sub">En dólares MEP, netos de IVA. Abajo, el detalle por subcategoría.</p></div></div>${barrasHorizontales(M.TIPOS_COSTO.concat(["Sin tipo"]).map(t => ({ rotulo: t === "Sin tipo" ? "Sin categoría" : M.nombreCategoria(t), valor: r.porTipo[t] || 0 })).filter(f => f.valor > 0), v => fmtUSD(v))}${tablaSubcat(r)}</section>
     <section class="panel grid-ancho"><div class="panel-cab"><div><h2>Cobros y costos por mes</h2><p class="panel-sub">En dólares MEP, netos de IVA.</p></div></div><div id="g-mes"></div></section>
     <section class="panel grid-ancho"><div class="panel-cab"><div><h2>Avance y costo por ítem</h2><p class="panel-sub">Costo real imputado contra el costo cotizado, en ${mon === "ARS" ? "pesos" : "dólares"} sin IVA. La barra de consumo se marca en rojo cuando el gasto va más rápido que el avance físico.</p></div></div>${tablaItems(p, sg)}</section>
     <section class="panel grid-ancho"><div class="panel-cab"><div><h2>Últimos movimientos</h2></div><a class="btn btn-fant btn-chico" href="#movimientos">Ver todos</a></div>${ultimos(r.movs, new Set([p.id]))}</section>
@@ -213,4 +213,19 @@ function tableroMagna(el) {
       ${rein.gastado > 0 ? `<p class="panel-sub" style="margin-top:14px">Recuperables cargados: ${fmtARS(rein.gastado)} · reintegrados: ${fmtARS(rein.devuelto)}. ${rein.ars > 0.5 ? `<a href="#cargar/nuevo/pase/reintegro">Registrar reintegro</a>` : ""}</p>` : ""}</section>
   </div>`;
   el.innerHTML = h;
+}
+
+/* Detalle de costos por subcategoría, agrupado por categoría. */
+function tablaSubcat(r) {
+  const grupos = {};
+  Object.entries(r.porSubcat || {}).forEach(([k, v]) => {
+    const [t, sub] = k.split("|");
+    (grupos[t] = grupos[t] || []).push([sub, v]);
+  });
+  const orden = M.TIPOS_COSTO.concat(["Sin tipo"]).filter(t => grupos[t]);
+  if (!orden.length) return "";
+  return `<div class="tabla-env" style="margin-top:14px"><table class="tabla tabla-compacta"><tbody>
+    ${orden.map(t => `<tr class="sub"><td><b>${esc(t === "Sin tipo" ? "Sin categoría" : M.nombreCategoria(t))}</b></td><td class="n"><b>${fmtUSD(r.porTipo[t] || 0)}</b></td></tr>
+      ${grupos[t].sort((a, b) => b[1] - a[1]).map(([sub, v]) => `<tr><td style="padding-left:18px">${esc(sub)}</td><td class="n">${fmtUSD(v)}</td></tr>`).join("")}`).join("")}
+  </tbody></table></div>`;
 }

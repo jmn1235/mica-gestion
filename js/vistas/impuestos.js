@@ -68,18 +68,19 @@ function vistaProyecto(el, p) {
       </tbody></table>
       <p class="panel-sub" style="margin-top:10px">Ganancias se pasa a pesos al último dólar MEP cargado (${res.mep ? fmtARS(res.mep, 2) : "—"}). Los pagos de impuestos se cargan como gastos de Magna · Reserva fiscal.</p></section>
   </div>`;
-  h += `<section class="panel" style="margin-top:16px"><div class="panel-cab"><div><h2>IVA por mes</h2><p class="panel-sub">En pesos. El débito sale de cada factura emitida (al tipo de cambio de la factura); el crédito, de las compras con Factura A.</p></div></div>
+  h += `<section class="panel" style="margin-top:16px"><div class="panel-cab"><div><h2>IVA por mes</h2><p class="panel-sub">En pesos. El débito sale de cada factura emitida (al tipo de cambio de la factura); el crédito, de las compras con Factura A. Retenciones incluye las percepciones de IVA de las compras.</p></div></div>
     ${iva.meses.length ? `<div class="tabla-env"><table class="tabla tabla-compacta"><thead><tr><th>Mes</th><th class="n">Débito</th><th class="n">Crédito</th><th class="n ocultar-movil">Retenciones</th><th class="n">Saldo</th></tr></thead><tbody>
       ${iva.meses.map(m => `<tr><td>${esc(mesLabel(m.mes))}</td><td class="n">${a(m.debito)}</td><td class="n">${a(-m.credito)}</td><td class="n ocultar-movil">${a(-m.ret)}</td><td class="n"><b>${a(m.saldo)}</b></td></tr>`).join("")}
       <tr class="total"><td>Total</td><td class="n">${a(iva.debito)}</td><td class="n">${a(-iva.credito)}</td><td class="n ocultar-movil">${a(-iva.ret)}</td><td class="n">${a(iva.saldo)}</td></tr>
     </tbody></table></div>` : `<div class="vacio">Todavía no hay facturas ni compras con IVA.</div>`}</section>`;
-  h += `<section class="panel"><div class="panel-cab"><div><h2>Retenciones sufridas</h2><p class="panel-sub">Las que hizo el cliente en cada cobro. Son pagos a cuenta del impuesto: bajan lo que queda por pagar.</p></div></div>
-    <table class="tabla tabla-compacta"><tbody>
-      <tr><td>Ganancias</td><td class="n">${a(x.retGanArs)}</td></tr>
-      <tr><td>Ingresos Brutos</td><td class="n">${a(x.retIibbArs)}</td></tr>
-      <tr><td>IVA</td><td class="n">${a(x.retIvaArs)}</td></tr>
-      ${x.retOtrasArs ? `<tr><td>Otras</td><td class="n">${a(x.retOtrasArs)}</td></tr>` : ""}
-      <tr class="total"><td>Total</td><td class="n">${a(x.retGanArs + x.retIibbArs + x.retIvaArs + x.retOtrasArs)}</td></tr>
+  const percTot = x.percGanArs + x.percIibbArs + x.percIvaArs;
+  h += `<section class="panel"><div class="panel-cab"><div><h2>Retenciones y percepciones sufridas</h2><p class="panel-sub">Retenciones: las que hizo el cliente en cada cobro. Percepciones: las que vinieron en las facturas de compra. Son pagos a cuenta del impuesto: bajan lo que queda por pagar.</p></div></div>
+    <table class="tabla tabla-compacta"><thead><tr><th></th><th class="n">Retenciones</th>${percTot ? `<th class="n">Percepciones</th>` : ""}</tr></thead><tbody>
+      <tr><td>Ganancias</td><td class="n">${a(x.retGanArs)}</td>${percTot ? `<td class="n">${a(x.percGanArs)}</td>` : ""}</tr>
+      <tr><td>Ingresos Brutos</td><td class="n">${a(x.retIibbArs)}</td>${percTot ? `<td class="n">${a(x.percIibbArs)}</td>` : ""}</tr>
+      <tr><td>IVA</td><td class="n">${a(x.retIvaArs)}</td>${percTot ? `<td class="n">${a(x.percIvaArs)}</td>` : ""}</tr>
+      ${x.retOtrasArs ? `<tr><td>Otras</td><td class="n">${a(x.retOtrasArs)}</td>${percTot ? `<td class="n">—</td>` : ""}</tr>` : ""}
+      <tr class="total"><td>Total</td><td class="n">${a(x.retGanArs + x.retIibbArs + x.retIvaArs + x.retOtrasArs)}</td>${percTot ? `<td class="n">${a(percTot)}</td>` : ""}</tr>
     </tbody></table></section>`;
   el.innerHTML = h;
 }

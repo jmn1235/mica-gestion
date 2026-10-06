@@ -6,6 +6,7 @@
 import { S, guardar, mandarAPapelera, nuevoId } from "../db.js";
 import { app } from "../contexto.js";
 import * as P from "../presupuesto.js";
+import * as XL from "../excel.js";
 import { $, $$, esc, num, fmtUSD, fmtPct, fmtCant, fmtMiles, fmtFecha, parseMonto, hoyISO, toast, confirmar2, modal, cerrarModal, cargarScript, cabecera, ICONOS } from "../ui.js";
 import { letraColumna } from "./comun.js";
 
@@ -317,9 +318,9 @@ function paso2(md, hojas, nombreHoja, nombreArchivo) {
 /* ---------- exportar en el formato de la planilla de cotización ---------- */
 async function exportar(lista) {
   if (!lista.length) return toast("No hay fichas para exportar.", "error");
-  try { await cargarScript(XLSX_URL); }
+  let wb;
+  try { wb = await XL.nuevoLibro(); }
   catch (e) { return toast("No se pudo cargar el generador de Excel. Revisá la conexión.", "error"); }
-  const XLSX = window.XLSX;
   const r2 = v => Math.round(n(v) * 100) / 100;
   const filas = lista.map(f => ({
     "Ítem": f.numero || "", Rubro: f.rubro || "", "Descripción": f.descripcion, Unidad: f.unidad || "", Cantidad: n(f.cantidad), "Precio unitario": r2(f.puVenta),
@@ -328,17 +329,18 @@ async function exportar(lista) {
     "Costo cotizado": r2(f.cot && f.cot.total), "Desvío %": f.desvioPct == null ? "" : Math.round(f.desvioPct * 1000) / 10, "Margen %": f.margenPct == null ? "" : Math.round(f.margenPct * 1000) / 10,
     Obra: f.obra, Cliente: f.cliente || "", "Tipo de obra": f.tipoObra || "", "Ubicación": f.ubicacion || "", "Año": f.anio || "", Origen: ORIGEN[f.origen] || "", Notas: f.notas || ""
   }));
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(filas);
-  ws["!cols"] = [7, 22, 60, 8, 10, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 9, 9, 24, 24, 24, 20, 6, 18, 30].map(w => ({ wch: w }));
-  XLSX.utils.book_append_sheet(wb, ws, "Base de costos");
-  const nota = [["MICA · Base de costos"], [`Exportado el ${fmtFecha(hoyISO(), true)}. ${lista.length} fichas.`], [""],
-    ["Montos por unidad, en dólares MEP sin IVA."], ["Materiales, mano de obra, equipos y subcontratos son el costo real del ítem, con lo imputado a su rubro ya repartido."],
-    ["Gastos generales: lo imputado a «General de obra», repartido según el peso de cada ítem en el costo directo cotizado."],
-    ["Para usarla como base de una cotización: en Contrato y presupuesto → Importar desde Excel, elegir esta hoja; la app reconoce las columnas."]];
-  const wn = XLSX.utils.aoa_to_sheet(nota);
-  wn["!cols"] = [{ wch: 110 }];
-  XLSX.utils.book_append_sheet(wb, wn, "Cómo leerla");
-  XLSX.writeFile(wb, `MICA_base_de_costos_${hoyISO()}.xlsx`);
+  const usd = ["Precio unitario", "Materiales", "Mano de obra", "Equipos", "Subcontratos", "Indirectos", "Costo del ítem", "Gastos generales", "Costo total", "Costo cotizado"];
+  const cols = XL.columnasDe(filas, [7, 22, 50, 8, 10, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 9, 9, 24, 24, 24, 20, 6, 18, 30],
+    Object.assign(Object.fromEntries(usd.map(k => [k, "usd"])), { "Ítem": "texto", "Año": "texto", Cantidad: "num" }));
+  // Sin título ni totales: la hoja se puede volver a importar como base de una cotización.
+  XL.hojaTabla(wb, "Base de costos", cols, filas, { congelarCol: 3 });
+  await XL.hojaTexto(wb, "Cómo leerla", "MICA · Base de costos", [
+    `Exportado el ${fmtFecha(hoyISO(), true)}. ${lista.length} fichas.`,
+    "Montos por unidad, en dólares MEP sin IVA.",
+    "Materiales, mano de obra, equipos y subcontratos son el costo real del ítem, con lo imputado a su rubro ya repartido.",
+    "Gastos generales: lo imputado a «General de obra», repartido según el peso de cada ítem en el costo directo cotizado.",
+    "Para usarla como base de una cotización: en Contrato y presupuesto → Importar desde Excel, elegir esta hoja; la app reconoce las columnas."
+  ], { logo: "img/logo-mica-negro.png" });
+  await XL.guardarLibro(wb, `MICA_base_de_costos_${hoyISO()}.xlsx`);
   toast(`Excel descargado con ${lista.length} fichas`);
 }

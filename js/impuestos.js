@@ -3,7 +3,7 @@
    - IVA débito: por factura emitida (fecha de la factura), más
      los cobros cargados a mano sin certificado.
    - IVA crédito: compras con Factura A.
-   - Retenciones de IVA sufridas en los cobros.
+   - Retenciones de IVA sufridas en los cobros y percepciones de IVA de las compras.
    El IVA no es resultado: el saldo a pagar se reserva en Magna.
    IIBB, cheque y Ganancias se calculan en modelo.impuestosDe.
    ========================================================= */
@@ -43,6 +43,7 @@ export function ivaProyecto(p, meses = {}) {
       sumar(meses, M.mesDe(m), "ret", n(m.retIVA));
     }
     if (M.esCosto(m) && m.fiscal === "A") sumar(meses, M.mesDe(m), "credito", n(m.ivaARS));
+    if (M.esCosto(m)) sumar(meses, M.mesDe(m), "ret", n(m.percIVA));
   });
   return cerrar(meses);
 }
@@ -53,6 +54,7 @@ export function ivaMagna() {
   S.proyectos.forEach(p => ivaProyecto(p, meses));
   S.movimientos.forEach(m => {
     if ((m.bolsillo === "ESTRUCTURA" || m.bolsillo === "MAGNA") && M.esCosto(m) && m.fiscal === "A") sumar(meses, M.mesDe(m), "credito", n(m.ivaARS));
+    if ((m.bolsillo === "ESTRUCTURA" || m.bolsillo === "MAGNA" || m.bolsillo === "RESERVA") && M.esCosto(m)) sumar(meses, M.mesDe(m), "ret", n(m.percIVA));
   });
   return cerrar(meses);
 }

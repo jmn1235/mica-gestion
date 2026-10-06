@@ -180,7 +180,7 @@ details summary::-webkit-details-marker { color: var(--gris); }
 .barra-ia-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .ia-frase { flex: 1; min-width: 240px; display: flex; gap: 6px; align-items: center; }
 .ia-frase .input { flex: 1; min-width: 0; }
-.renglon { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) minmax(0, 0.9fr) 130px 34px; gap: 6px; align-items: center; }
+.renglon { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 1.1fr) 120px 34px; gap: 6px; align-items: center; }
 .renglon.sin-tipo { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) 130px 34px; }
 .renglon .input { min-height: 38px; padding: 7px 9px; font-size: 13px; }
 /* cierre de mes */
@@ -288,6 +288,15 @@ details summary::-webkit-details-marker { color: var(--gris); }
 .equiv { border: 1px dashed var(--linea-2); border-radius: 6px; padding: 8px 12px; min-height: 40px; display: flex; flex-direction: column; justify-content: center; background: #FBFAFA; }
 .equiv b { font-family: var(--f-titulo); font-size: 17px; }
 .equiv span { font-size: 12px; color: var(--tinta-2); }
+/* Desglose del total de una factura: neto, IVA, percepciones. */
+.desglose { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; padding: 9px 12px; border-radius: 6px; background: var(--fondo); font-size: 13px; color: var(--tinta-2); }
+.desglose b { color: var(--tinta); font-variant-numeric: tabular-nums; font-weight: 600; }
+.desglose .desglose-total { margin-left: auto; }
+.desglose .desglose-error { flex-basis: 100%; color: var(--rojo-oscuro); font-weight: 600; }
+.bloque-socio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 280px); gap: 12px; align-items: start; border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px 14px; }
+.bloque-socio .check { margin: 0; }
+.sub-cat { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.sub-cat h3 { font-family: var(--f-titulo); font-size: 14px; margin: 0 0 8px; }
 .check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13.5px; }
 .check input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--negro); flex: none; }
 .form-pie { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 4px; }
@@ -449,6 +458,8 @@ details summary::-webkit-details-marker { color: var(--gris); }
   .tabla-compacta { font-size: 12px; }
   .renglon { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .renglon [data-r="concepto"] { grid-column: 1 / -1; }
+  .bloque-socio { grid-template-columns: minmax(0, 1fr); }
+  .desglose .desglose-total { margin-left: 0; }
   .burbuja { max-width: 92%; }
   .tabla-compacta th, .tabla-compacta td { padding: 8px 4px; }
   .tabla-compacta th { font-size: 10px; letter-spacing: 0; }

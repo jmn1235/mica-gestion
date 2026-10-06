@@ -2,10 +2,11 @@
    Movimientos: historial del contexto elegido, con filtros,
    edición y borrado a la papelera.
    ========================================================= */
-import { S, mandarAPapelera } from "../db.js";
+import { S } from "../db.js";
 import { app, fijarCtx } from "../contexto.js";
 import * as M from "../modelo.js";
 import * as PER from "../permisos.js";
+import * as GS from "../gastoSocio.js";
 import { $, $$, esc, num, fmtARS, fmtUSD, fmtFecha, mesLabel, toast, confirmar2, cabecera, ICONOS } from "../ui.js";
 
 /* Los filtros se recuerdan mientras la app está abierta. */
@@ -51,7 +52,7 @@ export function render(el) {
       if (filtro.bolsillo && m.bolsillo !== filtro.bolsillo && m.destino !== filtro.bolsillo) return false;
       if (filtro.imp && (m.imputacion || "") !== filtro.imp) return false;
       if (t) {
-        const txt = [m.proveedor, m.concepto, m.comprobante, m.notas, M.nombreImputacion(m), M.nombreClase(m.tipo, m.clase), M.socioNombre(m.socio), M.nombreBolsillo(m.bolsillo), M.nombreBolsillo(m.destino)].join(" ").toLowerCase();
+        const txt = [m.proveedor, m.concepto, m.comprobante, m.notas, M.nombreImputacion(m), m.subcategoria, M.nombreCategoria(m.tipoCosto), M.nombreClase(m.tipo, m.clase), M.socioNombre(m.socio), M.nombreBolsillo(m.bolsillo), M.nombreBolsillo(m.destino)].join(" ").toLowerCase();
         if (!txt.includes(t)) return false;
       }
       return true;
@@ -111,8 +112,10 @@ export function render(el) {
           PER.proponer({ coleccion: "movimientos", accion: "baja", docId: m.id });
           return toast("Pedido de baja enviado: Julio lo tiene que aprobar");
         }
-        mandarAPapelera("movimientos", m, app.usuario.socio);
-        toast("Movimiento enviado a la papelera");
+        if (m.gastoVinculado) return toast("Este préstamo nació de un gasto pagado por un socio: se borra o se desmarca desde el gasto.", "error");
+        const conPrestamo = !!GS.prestamoDe(m);
+        GS.borrarMovimiento(m, app.usuario.socio);
+        toast(conPrestamo ? "Gasto y préstamo enviados a la papelera" : "Movimiento enviado a la papelera");
       });
     }));
     const mas = $("#m-mas", cont);
@@ -135,7 +138,7 @@ function filaMov(m, ref) {
   const us = interno ? M.usd(m) : s * M.usd(m);
   const partes = [];
   if (m.tipo === "pase") partes.push(`${esc(M.nombreBolsillo(m.bolsillo))} → ${esc(M.nombreBolsillo(m.destino))}`);
-  else if (M.esCosto(m)) partes.push(esc(M.nombreImputacion(m, 44) || "Sin imputar"));
+  else if (M.esCosto(m)) partes.push(esc(M.nombreImputacion(m, 44) || "Sin imputar") + (m.subcategoria ? " · " + esc(m.subcategoria) : m.tipoCosto ? " · " + esc(M.nombreCategoria(m.tipoCosto)) : ""));
   else partes.push(esc(M.nombreClase(m.tipo, m.clase)));
   if (m.tipo !== "pase" && ref.size > 1) partes.push(esc(M.nombreBolsillo(m.bolsillo)));
   if (m.socio && !M.esCosto(m)) partes.push(esc(M.socioNombre(m.socio)));
@@ -144,6 +147,9 @@ function filaMov(m, ref) {
   const tags = [];
   if (m.tipo === "pase") tags.push(`<span class="tag tag-borde">Pase</span>`);
   if (m.cotizacionFuente === "aprox") tags.push(`<span class="tag tag-alerta" title="Se usó la cotización de otro día">Cotización a revisar</span>`);
+  if (m.pagadoPor) tags.push(`<span class="tag tag-borde" title="Quedó como préstamo del socio">Pagó ${esc(M.socioNombre(m.pagadoPor))}</span>`);
+  if (m.gastoVinculado) tags.push(`<span class="tag tag-borde" title="Generado por un gasto pagado por el socio">Por gasto pagado</span>`);
+  if (M.percepciones(m)) tags.push(`<span class="tag tag-borde" title="Percepciones de la factura">Perc. ${esc(fmtARS(M.percepciones(m)))}</span>`);
   if (m.retencionesARS) tags.push(`<span class="tag tag-borde" title="Retenciones sufridas">Ret. ${esc(fmtARS(m.retencionesARS))}</span>`);
   if (m.demo) tags.push(`<span class="tag tag-borde">Ejemplo</span>`);
   const sol = S.solicitudes.find(x => x.estado === "pendiente" && x.coleccion === "movimientos" && x.docId === m.id);

@@ -37,6 +37,6 @@ export function render(el) {
       <button type="button" id="mas-salir">${ICONOS.salir}<span>Salir</span></button>
     </nav>
   </section>
-  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 7</p>`;
+  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 8</p>`;
   el.querySelector("#mas-salir").addEventListener("click", () => app.salir());
 }

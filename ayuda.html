@@ -309,10 +309,11 @@ details > :last-child { margin-bottom: 14px; }
       </table></div>
       <h3>Un gasto, paso a paso</h3>
       <ol class="pasos">
-        <li><div><strong>Fecha y monto en pesos</strong><p>El monto es el que salió del banco, IVA incluido.</p></div></li>
-        <li><div><strong>Bolsillo</strong><p>Por defecto es el del proyecto que estás viendo. Elegí el de la obra si el gasto es de la obra, Estructura si es común de MICA, Magna · Julio si es de la SRL.</p></div></li>
-        <li><div><strong>Proveedor, ítem del presupuesto y tipo de costo</strong><p>El ítem permite comparar el gasto contra lo cotizado. El tipo (Materiales, Mano de obra, Equipos, Subcontratos, Indirectos) alimenta los gráficos.</p></div></li>
-        <li><div><strong>Comprobante</strong><p>Factura A con su alícuota de IVA, factura B/C o sin factura. El IVA de la factura A se separa solo: no es costo y suma crédito fiscal.</p></div></li>
+        <li><div><strong>Fecha y monto total en pesos</strong><p>Es el total de la factura: IVA y percepciones incluidos. Debajo del comprobante la app muestra cómo lo separa: neto, IVA, percepciones y total.</p></div></li>
+        <li><div><strong>Asignar costo a</strong><p>A qué bolsillo va el costo. Por defecto es el del proyecto que estás viendo: elegí la obra si el gasto es de la obra, Estructura si es común de MICA, Magna · Julio si es de la SRL. La plata siempre sale de la cuenta de Magna.</p></div></li>
+        <li><div><strong>Imputación, categoría y subcategoría</strong><p>La imputación dice a qué ítem o rubro del presupuesto va, o «General de obra» si no se puede separar. La categoría (Materiales, Mano de obra, Equipos, Subcontratos, Indirectos y gastos generales) y la subcategoría dicen qué es. Así un gasto general igual queda clasificado: por ejemplo, Mano de obra → Formulario 931. Las subcategorías se editan en <span class="ui">Ajustes → Cuentas y categorías</span>.</p></div></li>
+        <li><div><strong>Comprobante, IVA y percepciones</strong><p>Factura A con su alícuota de IVA, B o C, sueldo o tasa, o sin factura. Si la factura tiene renglones con distintas alícuotas (21% y 10,5%, por ejemplo), elegí <span class="ui">Varias</span> y cargá el IVA total. Si trae percepciones de IIBB, IVA o Ganancias, cargalas en su campo: no son costo, son pagos a cuenta de Magna, y van a la planilla de la contadora.</p></div></li>
+        <li><div><strong>Si lo pagó un socio con su plata</strong><p>Marcá <span class="ui">Lo pagó un socio con su plata</span> y elegí quién. El gasto cuenta como costo y la app crea sola un préstamo de ese socio al proyecto por el mismo monto, con la tasa fijada en <span class="ui">Ajustes → Impuestos e IA</span>. Los dos quedan vinculados: si se corrige o se borra el gasto, el préstamo lo acompaña.</p></div></li>
       </ol>
       <div class="nota nota-tip"><svg><use href="#i-tip"/></svg><div><b class="t">Leer la factura con IA</b><p>Arriba del formulario podés subir la foto o el PDF de la factura. La IA completa proveedor, fecha, monto, IVA y comprobante; revisalo y guardá. Necesita la clave de IA cargada en <span class="ui">Ajustes → Impuestos e IA</span>, en cada dispositivo.</p></div></div>
     </section>
@@ -483,12 +484,13 @@ details > :last-child { margin-bottom: 14px; }
       </table></div>
 
       <h3>Si un socio paga con plata de su bolsillo</h3>
-      <p>A veces un socio paga algo de la obra con su tarjeta o su cuenta personal. Esa plata no pasa por el banco de Magna, así que no puede ir en la cuenta de Magna sin romper la conciliación.</p>
+      <p>A veces un socio paga algo de la obra con su tarjeta o su cuenta personal; por ejemplo, José carga combustible. Al cargar el gasto se marca <span class="ui">Lo pagó un socio con su plata</span> y se elige el socio.</p>
       <ol class="pasos">
-        <li><div><strong>Creá una cuenta «Pagos de socios»</strong><p>En <span class="ui">Ajustes → Cuentas</span>, tipo Efectivo. Se hace una sola vez.</p></div></li>
-        <li><div><strong>Cargá el ingreso del socio en esa cuenta</strong><p>Ingreso → Aporte o Préstamo de un socio, en el bolsillo de la obra.</p></div></li>
-        <li><div><strong>Cargá el gasto en la misma cuenta</strong><p>Con el mismo monto. La cuenta «Pagos de socios» queda en cero y el banco de Magna no se toca.</p></div></li>
+        <li><div><strong>El gasto cuenta como costo de la obra</strong><p>Con su factura a nombre de Magna, su IVA y su imputación, como cualquier otro.</p></div></li>
+        <li><div><strong>La app crea el préstamo del socio</strong><p>Un ingreso «Préstamo de un socio» al mismo bolsillo, por el mismo monto, fecha y dólar MEP, con la tasa de <span class="ui">Ajustes → Impuestos e IA</span>. Aparece en la cuenta del socio y en Socios, y se le devuelve como cualquier préstamo.</p></div></li>
+        <li><div><strong>El banco no se toca</strong><p>El gasto y el préstamo se compensan: el saldo de la cuenta de Magna queda igual y la conciliación con el extracto sigue cerrando. Tampoco generan impuesto al cheque.</p></div></li>
       </ol>
+      <p>Los operativos también lo pueden marcar: el pedido llega con el préstamo incluido y Julio aprueba las dos cosas juntas. El préstamo no se edita por separado: se corrige o se borra desde el gasto.</p>
     </section>
 
     <!-- 6 -->
@@ -541,7 +543,8 @@ details > :last-child { margin-bottom: 14px; }
       <ul>
         <li><strong>Tres resultados:</strong> operativo, impositivo y neto. El impositivo no deduce gastos sin factura ni honorarios e intereses entre socios, por eso los gastos sin factura generan Ganancias extra. El neto es lo que se puede repartir.</li>
         <li><strong>Reserva fiscal:</strong> muestra lo que el proyecto debería haber pasado a Magna · Reserva fiscal y lo que falta. El botón <span class="ui">Reservar</span> abre el pase con el monto sugerido.</li>
-        <li><strong>IVA por mes</strong> y <strong>retenciones sufridas</strong>, para controlar con la contadora.</li>
+        <li><strong>IVA por mes</strong> y <strong>retenciones y percepciones sufridas</strong>, para controlar con la contadora. Las percepciones de las facturas de compra bajan lo que queda por pagar de IVA, IIBB y Ganancias.</li>
+        <li><strong>Planilla para la contadora:</strong> en <span class="ui">Exportar y datos</span>, elegí el mes (o un rango) y descargá un Excel con todo lo oficial de Magna en pesos: compras con factura con IVA por alícuota y percepciones, ventas (las facturas en dólares al tipo de cambio de cada factura), retenciones sufridas, sueldos y cargas, un resumen mensual con fórmulas y, en una hoja aparte, los gastos sin factura. La razón social y el CUIT se cargan en <span class="ui">Ajustes → Impuestos e IA</span>.</li>
         <li><strong>Pagos de impuestos:</strong> se cargan como gasto del bolsillo Magna · Reserva fiscal.</li>
       </ul>
       <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><p>Las tasas (Ganancias, IIBB, impuesto al cheque) se configuran en <span class="ui">Ajustes → Impuestos e IA</span> y son estimaciones. Conviene validarlas con la contadora de Magna.</p></div></div>
@@ -614,7 +617,7 @@ details > :last-child { margin-bottom: 14px; }
       <details><summary>¿Puedo usar la app sin conexión?</summary><p>Para entrar hace falta conexión. Si se corta la señal con la app abierta, lo que cargues queda guardado en el dispositivo y se sube solo cuando vuelve la conexión. Hasta entonces los demás socios no lo ven.</p></details>
     </section>
 
-    <footer class="pie">MICA — Minería Integral Catamarca · Guía de uso de MICA Gestión, versión 7 · Octubre 2026. Ante cualquier duda sobre cómo cargar algo, preguntale a Julio antes de inventar una forma nueva: una sola forma de cargar cada cosa es lo que mantiene las cuentas conciliadas.</footer>
+    <footer class="pie">MICA — Minería Integral Catamarca · Guía de uso de MICA Gestión, versión 8 · Octubre 2026. Ante cualquier duda sobre cómo cargar algo, preguntale a Julio antes de inventar una forma nueva: una sola forma de cargar cada cosa es lo que mantiene las cuentas conciliadas.</footer>
   </main>
 </div>
 

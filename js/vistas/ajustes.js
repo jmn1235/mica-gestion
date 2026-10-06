@@ -12,7 +12,10 @@ import * as C from "../certificados.js";
 import * as IA from "../ia.js";
 import * as I from "../impuestos.js";
 import * as PER from "../permisos.js";
-import { $, $$, esc, num, fmtARS, fmtUSD, fmtMoneda, fmtFecha, fmtFechaHora, fmtMiles, parseMonto, hoyISO, toast, confirmar2, modal, cerrarModal, descargar, cargarScript, cabecera, ICONOS } from "../ui.js";
+import * as GS from "../gastoSocio.js";
+import * as CT from "../contadora.js";
+import * as XL from "../excel.js";
+import { $, $$, esc, num, fmtARS, fmtUSD, fmtMoneda, fmtFecha, fmtFechaHora, fmtMiles, parseMonto, hoyISO, toast, confirmar2, modal, cerrarModal, descargar, cabecera, ICONOS } from "../ui.js";
 
 const PESTANAS_ADMIN = [
   { id: "proyectos", nombre: "Proyectos" },
@@ -262,8 +265,37 @@ function cuentas(cont) {
     </tbody></table></div></section>
     <div class="grid-3">${LISTAS.map(L => `<section class="panel" data-lista="${L.k}"><div class="panel-cab"><div><h2>${L.titulo}</h2><p class="panel-sub">${L.sub}</p></div></div>
       <div class="form" style="gap:8px" data-filas>${(g[L.k] || []).map(c => filaCat(c)).join("")}</div>
-      <div class="form-pie" style="margin-top:12px"><button class="btn btn-sec btn-chico" data-add>Agregar</button><button class="btn btn-pri btn-chico" data-guardar>Guardar</button></div></section>`).join("")}</div>`;
+      <div class="form-pie" style="margin-top:12px"><button class="btn btn-sec btn-chico" data-add>Agregar</button><button class="btn btn-pri btn-chico" data-guardar>Guardar</button></div></section>`).join("")}</div>
+    <section class="panel" id="subcats"><div class="panel-cab"><div><h2>Gastos de obra: categorías y subcategorías</h2><p class="panel-sub">Cada gasto de un proyecto lleva su imputación (ítem, rubro o general de obra), una categoría y una subcategoría. Las categorías son fijas porque alimentan la base de costos; las subcategorías se agregan, renombran o quitan acá. Al renombrar una, los gastos ya cargados pasan al nombre nuevo.</p></div><button class="btn btn-pri btn-chico" id="sc-guardar">Guardar subcategorías</button></div>
+      <div class="sub-cat">${M.TIPOS_COSTO.map(t => `<div data-tipo="${esc(t)}"><h3>${esc(M.nombreCategoria(t))}</h3><div class="form" style="gap:8px" data-filas>${M.subcategoriasDe(t).map(c => filaCat(c, "Subcategoría")).join("")}</div>
+        <button class="btn btn-sec btn-chico" data-add style="margin-top:8px">Agregar</button></div>`).join("")}</div></section>`;
   $("#cu-nueva", cont).addEventListener("click", () => editarCuenta(null));
+  const sc = $("#subcats", cont);
+  const enlazarSc = () => $$("[data-quitar]", sc).forEach(b => { b.onclick = () => { b.closest(".con-boton").remove(); editandoProyecto = true; }; });
+  enlazarSc();
+  sc.addEventListener("input", () => { editandoProyecto = true; });
+  $$("[data-tipo]", sc).forEach(bloque => $("[data-add]", bloque).addEventListener("click", () => {
+    const filas = $("[data-filas]", bloque);
+    filas.insertAdjacentHTML("beforeend", filaCat("", "Subcategoría")); enlazarSc(); $("input", filas.lastElementChild).focus();
+  }));
+  $("#sc-guardar", cont).addEventListener("click", () => {
+    const todas = {};
+    let renombres = 0;
+    $$("[data-tipo]", sc).forEach(bloque => {
+      const t = bloque.dataset.tipo, lista = [];
+      $$(".con-boton input", bloque).forEach(inp => {
+        const v = inp.value.trim();
+        if (!v || lista.includes(v)) return;
+        lista.push(v);
+        const orig = inp.dataset.orig;
+        if (orig && orig !== v) S.movimientos.filter(m => M.esCosto(m) && m.tipoCosto === t && m.subcategoria === orig).forEach(m => { renombres++; guardar("movimientos", Object.assign({}, m, { subcategoria: v })); });
+      });
+      todas[t] = lista;
+    });
+    guardarConfig("general", { subcategorias: todas });
+    editandoProyecto = false;
+    toast("Subcategorías guardadas" + (renombres ? ` · ${renombres} gasto${renombres > 1 ? "s" : ""} actualizado${renombres > 1 ? "s" : ""}` : ""));
+  });
   $$("tr[data-id]", cont).forEach(tr => tr.addEventListener("click", () => editarCuenta(S.cuentas.find(c => c.id === tr.dataset.id))));
   $$("[data-lista]", cont).forEach(sec => {
     const L = LISTAS.find(x => x.k === sec.dataset.lista);
@@ -289,7 +321,7 @@ function cuentas(cont) {
     });
   });
 }
-const filaCat = c => `<div class="con-boton"><input class="input" value="${esc(c)}" data-orig="${esc(c)}" aria-label="Categoría"><button type="button" class="btn-icono" data-quitar title="Quitar" aria-label="Quitar">${ICONOS.cerrar}</button></div>`;
+const filaCat = (c, rotulo = "Categoría") => `<div class="con-boton"><input class="input" value="${esc(c)}" data-orig="${esc(c)}" aria-label="${rotulo}"><button type="button" class="btn-icono" data-quitar title="Quitar" aria-label="Quitar">${ICONOS.cerrar}</button></div>`;
 
 function editarCuenta(c0) {
   const c = c0 ? Object.assign({}, c0) : { nombre: "", banco: "", tipo: "banco", notas: "" };
@@ -329,7 +361,12 @@ function impuestosIA(cont, soloIA) {
           <div class="campo"><label for="t-chd">Impuesto al cheque, débitos (%)</label><input id="t-chd" inputmode="decimal" value="${v(t.chequeDebito)}"></div>
         </div>
         <div class="campo"><label for="t-chp">Parte del impuesto al cheque que se computa contra Ganancias (%)</label><input id="t-chp" inputmode="decimal" value="${v(t.chequeComputable)}"></div>
-        <div class="form-pie"><button class="btn btn-pri" type="submit">Guardar tasas</button></div>
+        <div class="bloque"><div class="bloque-tit">Gastos pagados por un socio</div>
+          <div class="campo"><label for="t-tps">Tasa del préstamo que genera el gasto (% anual en dólares)</label><input id="t-tps" inputmode="decimal" value="${v(M.tasaGastosSocios())}" placeholder="0"><div class="hint">Vale para los préstamos nuevos. Cada préstamo guarda la tasa con la que nació.</div></div></div>
+        <div class="bloque"><div class="bloque-tit">Datos fiscales de Magna (para la planilla de la contadora)</div>
+          <div class="fila fila-movil-2"><div class="campo"><label for="t-rs">Razón social</label><input id="t-rs" value="${esc(CT.datosFiscales().razonSocial)}"></div>
+          <div class="campo"><label for="t-cuit">CUIT</label><input id="t-cuit" value="${esc(CT.datosFiscales().cuit)}" placeholder="30-00000000-0"></div></div></div>
+        <div class="form-pie"><button class="btn btn-pri" type="submit">Guardar</button></div>
       </form></section>
     <section class="panel" style="${soloIA ? "max-width:640px" : ""}"><div class="panel-cab"><div><h2>Asistente con IA</h2><p class="panel-sub">Lee facturas, entiende gastos escritos o dictados, arma el informe del cierre de mes y responde preguntas. Usa la API de Anthropic con una clave de MICA.</p></div></div>
       <form class="form" id="fia" novalidate>
@@ -346,8 +383,11 @@ function impuestosIA(cont, soloIA) {
     e.preventDefault();
     const d = { iibb: leerT("#t-iibb"), ganancias: leerT("#t-gan"), chequeCredito: leerT("#t-chc"), chequeDebito: leerT("#t-chd"), chequeComputable: leerT("#t-chp") };
     if (Object.values(d).some(x => x == null || x < 0 || x > 100)) return toast("Revisá las tasas: tienen que ser porcentajes entre 0 y 100.", "error");
-    guardarConfig("general", { impuestos: d });
-    toast("Tasas guardadas");
+    const tps = $("#t-tps", cont).value.trim() ? leerT("#t-tps") : 0;
+    if (tps == null || tps < 0 || tps > 200) return toast("Revisá la tasa de los gastos pagados por socios.", "error");
+    const rs = $("#t-rs", cont).value.trim() || "Magna Desarrollos SRL";
+    guardarConfig("general", { impuestos: d, tasaGastosSocios: tps, magna: { razonSocial: rs, cuit: $("#t-cuit", cont).value.trim() } });
+    toast("Guardado");
   });
   $("#fia", cont).addEventListener("submit", e => {
     e.preventDefault();
@@ -425,11 +465,20 @@ function datos(cont) {
   };
   cont.innerHTML = `
   <div class="grid-2" style="margin-top:0">
-    <section class="panel"><div class="panel-cab"><div><h2>Exportar</h2><p class="panel-sub">Un Excel con movimientos, proyectos, ítems con costos cotizados, avance físico, certificados y cobranza, impuestos, socios, préstamos, honorarios, proveedores, saldos por bolsillo, cierres de proyecto y base de costos.</p></div></div>
-      <button class="btn btn-sec" id="d-excel">${ICONOS.descargar}Descargar Excel</button></section>
-    <section class="panel"><div class="panel-cab"><div><h2>Respaldo</h2><p class="panel-sub">Copia completa en un archivo. Conviene bajarla una vez por mes y guardarla en el Drive de MICA.</p></div></div>
-      <div class="form-pie"><button class="btn btn-sec" id="d-json">${ICONOS.descargar}Descargar respaldo</button>
-      ${admin ? `<label class="btn btn-fant" for="d-archivo">${ICONOS.subir}Restaurar un respaldo</label><input type="file" id="d-archivo" accept="application/json,.json" hidden>` : ""}</div></section>
+    <section class="panel"><div class="panel-cab"><div><h2>Planilla para la contadora</h2><p class="panel-sub">Lo oficial de Magna, en pesos: compras con factura (con IVA por alícuota y percepciones), ventas, retenciones sufridas, sueldos y cargas, y un resumen por mes para la declaración de IVA. Los gastos sin factura van en una hoja aparte.</p></div></div>
+      <form class="form" id="d-fcont" novalidate>
+        <div class="fila fila-movil-2" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+          <div class="campo"><label for="d-desde">Desde</label><input type="month" id="d-desde" value="${mesPrevio()}"></div>
+          <div class="campo"><label for="d-hasta">Hasta</label><input type="month" id="d-hasta" value="${mesPrevio()}"></div>
+        </div>
+        <div class="form-pie"><button class="btn btn-pri" type="submit" id="d-contadora">${ICONOS.descargar}Descargar planilla</button></div>
+      </form></section>
+    <section class="panel"><div class="panel-cab"><div><h2>Todo en Excel</h2><p class="panel-sub">Movimientos, proyectos, ítems con costos cotizados, avance físico, certificados y cobranza, impuestos, socios, préstamos, honorarios, proveedores, saldos por bolsillo, cierres, aprobaciones y base de costos, con formato y una hoja que explica cada una.</p></div></div>
+      <button class="btn btn-sec" id="d-excel">${ICONOS.descargar}Descargar Excel completo</button>
+      <div class="bloque" style="margin-top:16px"><div class="bloque-tit">Respaldo</div>
+        <p class="panel-sub" style="margin:0">Copia completa en un archivo para restaurar la app. Conviene bajarla una vez por mes y guardarla en el Drive de MICA, junto con el Excel completo.</p>
+        <div class="form-pie"><button class="btn btn-sec" id="d-json">${ICONOS.descargar}Descargar respaldo</button>
+        ${admin ? `<label class="btn btn-fant" for="d-archivo">${ICONOS.subir}Restaurar un respaldo</label><input type="file" id="d-archivo" accept="application/json,.json" hidden>` : ""}</div></div></section>
   </div>
 
   <section class="panel" style="margin-top:16px"${admin ? "" : " hidden"}><div class="panel-cab"><div><h2>Papelera</h2><p class="panel-sub">Lo borrado queda acá con quién y cuándo lo borró, y se puede restaurar.</p></div>${pap.length ? `<button class="btn btn-peligro btn-chico" id="d-vaciar">Vaciar papelera</button>` : ""}</div>
@@ -469,10 +518,25 @@ function datos(cont) {
       catch (err) { toast("No se pudo restaurar: " + err.message, "error"); }
     }, "Tocá otra vez para confirmar"));
   });
-  $("#d-excel", cont).addEventListener("click", exportarExcel);
+  const bx = $("#d-excel", cont);
+  bx.addEventListener("click", async () => { bx.disabled = true; try { await exportarExcel(); } finally { bx.disabled = false; } });
+  $("#d-fcont", cont).addEventListener("submit", async e => {
+    e.preventDefault();
+    const desde = $("#d-desde", cont).value, hasta = $("#d-hasta", cont).value;
+    if (!/^\d{4}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}$/.test(hasta)) return toast("Elegí el mes desde y hasta.", "error");
+    if (desde > hasta) return toast("El mes «desde» tiene que ser anterior o igual al «hasta».", "error");
+    if (M.mesesEntre(desde, hasta).length > 24) return toast("Elegí hasta 24 meses por planilla.", "error");
+    const b = $("#d-contadora", cont);
+    b.disabled = true;
+    try {
+      const r = await CT.exportarContadora(desde, hasta, M.socioNombre(app.usuario.socio));
+      toast(`Planilla descargada · ${r.compras} compras con factura, ${r.ventas} ventas, ${r.sueldos} sueldos y cargas, ${r.sinFactura} sin factura`);
+    } catch (err) { console.error(err); toast("No se pudo generar la planilla. Revisá la conexión.", "error"); }
+    finally { b.disabled = false; }
+  });
   $$("[data-rest]", cont).forEach(b => b.addEventListener("click", () => {
     const t = S.papelera.find(x => x.id === b.dataset.rest);
-    if (t) { restaurar(t); toast("Restaurado"); }
+    if (t) { restaurar(t); GS.alRestaurar(t.col, Object.assign({}, t.datos, { id: t.docId }), app.usuario.socio); toast("Restaurado"); }
   }));
   const vac = $("#d-vaciar", cont);
   if (vac) vac.addEventListener("click", e => confirmar2(e.currentTarget, () => { S.papelera.slice().forEach(t => borrar("papelera", t.id)); toast("Papelera vacía"); }, "Se borra para siempre"));
@@ -490,21 +554,26 @@ function datos(cont) {
   if (reset) reset.addEventListener("click", e => confirmar2(e.currentTarget, () => { borrarLocal(); sembrarSiHaceFalta(); toast("Datos borrados. Quedó solo el proyecto inicial."); }, "Se borra todo: ¿seguro?"));
 }
 
+function mesPrevio() {
+  const [y, m] = hoyISO().slice(0, 7).split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+
 async function exportarExcel() {
-  try {
-    await cargarScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
-  } catch (e) { return toast("No se pudo cargar el generador de Excel. Revisá la conexión.", "error"); }
-  const XLSX = window.XLSX;
+  let wb;
+  try { wb = await XL.nuevoLibro(); }
+  catch (e) { return toast("No se pudo cargar el generador de Excel. Revisá la conexión.", "error"); }
   const r2 = v => Math.round((Number(v) || 0) * 100) / 100;
   const movs = S.movimientos.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
   const hMov = movs.map(m => ({
     Fecha: m.fecha, Tipo: M.TIPOS[m.tipo], Clase: M.nombreClase(m.tipo, m.clase), Bolsillo: M.nombreBolsillo(m.bolsillo), Destino: m.tipo === "pase" ? M.nombreBolsillo(m.destino) : "",
-    Proveedor: m.proveedor || "", Concepto: m.concepto || "", "Imputación": M.nombreImputacion(m), "Tipo de costo": m.tipoCosto || "",
+    Proveedor: m.proveedor || "", Concepto: m.concepto || "", "Imputación": M.nombreImputacion(m), "Categoría": M.nombreCategoria(m.tipoCosto), "Subcategoría": m.subcategoria || "",
     Comprobante: ({ A: "Factura A", B: "Factura B o C", S: "Sueldo, cargas o tasa", X: "Sin factura" })[m.fiscal] || "", "N° comprobante": m.comprobante || "",
-    "Monto ARS": r2(m.montoARS), "IVA ARS": r2(m.ivaARS), "Neto ARS": r2(M.netoArs(m)), "Dólar MEP": r2(m.cotizacion), "Monto USD": r2(M.usd(m)), "Neto USD": r2(M.netoUsd(m)),
+    "Monto ARS": r2(m.montoARS), "Alícuota IVA": m.ivaARS ? M.nombreAlicuota(m.alicuota) : "", "IVA ARS": r2(m.ivaARS),
+    "Percepción IIBB ARS": r2(m.percIIBB), "Percepción IVA ARS": r2(m.percIVA), "Percepción Ganancias ARS": r2(m.percGan), "Neto ARS": r2(M.netoArs(m)), "Dólar MEP": r2(m.cotizacion), "Monto USD": r2(M.usd(m)), "Neto USD": r2(M.netoUsd(m)),
     "Ret. Ganancias": r2(m.retGan), "Ret. IIBB": r2(m.retIIBB), "Ret. IVA": r2(m.retIVA), "Ret. otras": r2(m.retOtras), "TC de pago": m.tcPago || "",
     Certificado: m.certificado ? (C.tituloDoc(S.certificados.find(c => c.id === m.certificado) || {}) || "") : "",
-    Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", "Aprobado por": m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", Id: m.id
+    Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", "Pagado por (préstamo)": m.pagadoPor ? M.socioNombre(m.pagadoPor) : "", "Vinculado a gasto": m.gastoVinculado ? "Sí" : "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", "Aprobado por": m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", Id: m.id
   }));
   const hProy = M.proyectosOrdenados().map(p => { const r = M.resumenProyecto(p); return {
     Proyecto: p.nombre, "Código": p.codigo || "", Cliente: p.cliente || "", Estado: (M.ESTADOS_PROYECTO.find(e => e.id === p.estado) || {}).nombre || "", Moneda: p.moneda,
@@ -580,32 +649,44 @@ async function exportarExcel() {
       "Cerrado por": M.socioNombre(c.cerradoPor) || "" };
   });
   const hBol = M.bolsillos().map(b => { const s = M.saldoBolsillo(b.id); return { Bolsillo: b.nombre, "Saldo ARS": r2(s.ars), "Saldo USD (histórico)": r2(s.usd) }; });
-  const wb = XLSX.utils.book_new();
-  const hoja = (filas, nombre, anchos) => {
-    const ws = XLSX.utils.json_to_sheet(filas.length ? filas : [{ "Sin datos": "" }]);
-    if (anchos) ws["!cols"] = anchos.map(w => ({ wch: w }));
-    XLSX.utils.book_append_sheet(wb, ws, nombre);
+  const sub = `Exportado el ${fmtFechaHora(new Date().toISOString())} por ${M.socioNombre(app.usuario.socio)} · Pesos y dólares MEP de cada movimiento`;
+  const LEEME = [];
+  const hoja = (filas, nombre, anchos, que, totales = []) => {
+    const cols = XL.columnasDe(filas, anchos);
+    cols.forEach(c => { c.total = totales.includes(c.k); });
+    XL.hojaTabla(wb, nombre, cols, filas, { titulo: "MICA · " + nombre, subtitulo: sub, totales: totales.length > 0 });
+    LEEME.push([nombre, que]);
   };
-  hoja(hMov, "Movimientos", [11, 10, 22, 26, 26, 24, 30, 34, 14, 14, 14, 14, 14, 14, 10, 12, 12, 10, 8, 12, 24, 12, 18]);
-  hoja(hProy, "Proyectos", [22, 12, 26, 14, 8, 14, 12, 14, 14, 14, 16]);
-  hoja(hItems, "Ítems", [20, 7, 6, 60, 24, 8, 10, 14, 14, 12, 12, 12, 12, 14, 14, 9, 9, 10, 9, 14, 14, 14]);
-  hoja(hAvance, "Avance físico", [20, 9, 6, 60, 8, 10, 14]);
-  hoja(hImp, "Impuestos", [20, 18, 12, 14, 18, 14, 12, 16, 16, 16, 16, 16, 14, 14]);
-  hoja(hSocios, "Socios", [20, 12, 14, 14, 14, 14, 20, 14, 14]);
-  hoja(hPrest, "Préstamos", [20, 24, 11, 16, 14, 12, 18, 14]);
-  hoja(hHon, "Honorarios", [20, 12, 28, 30, 9, 12, 14]);
-  hoja(hCert, "Certificados", [20, 7, 30, 9, 11, 12, 12, 12, 12, 12, 12, 16, 12, 10, 12, 12, 12, 14, 14, 26]);
-  hoja(hBol, "Saldos por bolsillo", [30, 16, 20]);
-  hoja(hProv, "Proveedores", [30, 16, 20, 30]);
-  hoja(hCierres, "Cierres", [22, 12, 12, 13, 13, 13, 13, 15, 12, 12, 13, 15, 13, 15, 15, 12, 12, 12, 26, 14]);
+
+  hoja(hMov, "Movimientos", [11, 18, 22, 26, 22, 24, 30, 30, 16, 22, 14, 16, 14, 9, 13, 12, 12, 12, 14, 11, 13, 12, 12, 12, 12, 12, 10, 20, 12, 8, 12, 8, 10, 24, 11, 11, 18],
+    "Todos los movimientos en orden de fecha: gastos, ingresos y pases entre bolsillos, con IVA, percepciones, imputación, categoría y subcategoría, en pesos y en dólares MEP del día.");
+  hoja(hProy, "Proyectos", [22, 12, 26, 14, 8, 14, 12, 14, 14, 14, 16], "Un renglón por proyecto: contrato, cobrado, costos y resultado en dólares, y participación de cada socio.", ["Cobrado USD", "Costos USD", "Resultado USD"]);
+  hoja(hItems, "Ítems", [20, 7, 6, 50, 20, 8, 10, 14, 14, 12, 12, 12, 12, 14, 14, 11, 11, 12, 9, 14, 14, 14], "Ítems de cotización con su costo cotizado, la ejecución, el avance y el costo real imputado.");
+  hoja(hAvance, "Avance físico", [20, 9, 6, 50, 8, 10, 14], "Cantidades ejecutadas por mes en cada ítem.");
+  hoja(hImp, "Impuestos", [20, 18, 12, 14, 18, 14, 12, 16, 16, 16, 16, 16, 14, 14], "Impuestos estimados por proyecto y lo que falta reservar.", ["IIBB USD", "Impuesto al cheque USD", "Ganancias USD", "A reservar ARS", "Reservado ARS", "Falta reservar ARS"]);
+  hoja(hSocios, "Socios", [20, 12, 14, 14, 14, 14, 20, 14, 14], "Cuenta de cada socio en cada proyecto y el total de MICA.");
+  hoja(hPrest, "Préstamos", [20, 24, 11, 16, 14, 12, 18, 14], "Cada préstamo recibido por los proyectos, con su tasa, el interés devengado y el saldo.", ["Capital ARS", "Capital USD", "Interés devengado USD", "Saldo USD"]);
+  hoja(hHon, "Honorarios", [20, 12, 28, 30, 9, 12, 14], "Honorarios reconocidos a los socios, mes por mes.", ["Honorario USD"]);
+  hoja(hCert, "Certificados", [20, 7, 30, 9, 11, 12, 12, 12, 12, 12, 12, 16, 12, 11, 12, 12, 12, 14, 14, 26], "Certificados, anticipos y fondos de reparo: facturación, cobranza, retenciones y saldo.");
+  hoja(hBol, "Saldos por bolsillo", [30, 16, 20], "Saldo de cada bolsillo dentro de la cuenta de Magna.", ["Saldo ARS"]);
+  hoja(hProv, "Proveedores", [30, 16, 20, 30], "Maestro de proveedores.");
+  hoja(hCierres, "Cierres", [22, 12, 12, 13, 13, 13, 13, 15, 12, 12, 13, 15, 13, 15, 15, 12, 12, 12, 26, 14], "Liquidación de cada proyecto cerrado.");
   const hSol = S.solicitudes.slice().sort((a, b) => String(b.creadoEl).localeCompare(String(a.creadoEl))).map(x => ({
     Pedido: x.creadoEl ? x.creadoEl.slice(0, 16).replace("T", " ") : "", "Pedido por": PER.socioNombre(x.autor), Acción: PER.ACCIONES[x.accion] || x.accion,
     Qué: x.coleccion === "avances" ? "Avance físico" : "Gasto de obra", Detalle: x.resumen || "", Estado: PER.ESTADOS[x.estado] || x.estado,
     "Resuelto por": x.resueltoPor ? PER.socioNombre(x.resueltoPor) : "", Resuelto: x.resueltoEl ? x.resueltoEl.slice(0, 16).replace("T", " ") : "",
     "Con correcciones": x.corregido ? "Sí" : "", Motivo: x.motivo || ""
   }));
-  hoja(hSol, "Aprobaciones", [17, 12, 13, 14, 60, 11, 12, 17, 10, 40]);
-  hoja(hFichas, "Base de costos", [22, 22, 22, 6, 18, 6, 20, 60, 8, 10, 12, 12, 12, 12, 12, 14, 14, 14, 14, 9, 14, 9, 30]);
-  XLSX.writeFile(wb, `MICA_gestion_${hoyISO()}.xlsx`);
+  hoja(hSol, "Aprobaciones", [17, 12, 13, 14, 60, 11, 12, 17, 10, 40], "Pedidos de los operativos y cómo se resolvieron.");
+  hoja(hFichas, "Base de costos", [22, 22, 22, 6, 18, 6, 20, 50, 8, 10, 12, 12, 12, 12, 12, 14, 14, 14, 14, 9, 14, 9, 30], "Costos reales por unidad de obras terminadas, para cotizar.");
+  // Léeme: qué hay en cada hoja.
+  const ws = await XL.hojaTexto(wb, "Léeme", "MICA · Gestión de proyectos", [
+    `Exportado el ${fmtFechaHora(new Date().toISOString())} por ${M.socioNombre(app.usuario.socio)}.`,
+    "Los pesos son los del día de cada movimiento; los dólares, al dólar MEP de ese día. Los costos se muestran netos de IVA y de percepciones.",
+    "Cada hoja tiene filtros en la fila de títulos. Las filas de total usan SUBTOTAL: suman solo lo que queda visible al filtrar.",
+    { seccion: "Qué hay en cada hoja" }, ...LEEME
+  ], { logo: "img/logo-mica-negro.png" });
+  ws.orderNo = 0; // primera hoja
+  await XL.guardarLibro(wb, `MICA_gestion_${hoyISO()}.xlsx`);
   toast("Excel descargado");
 }

@@ -5,6 +5,7 @@
    ========================================================= */
 import { S, guardar } from "../db.js";
 import * as PER from "../permisos.js";
+import * as GS from "../gastoSocio.js";
 import { app } from "../contexto.js";
 import { SOCIOS } from "../config.js";
 import * as M from "../modelo.js";
@@ -94,15 +95,17 @@ async function leerFactura(file, bol) {
   const esProy = !!M.proyecto(bol);
   const sistema = "Sos un asistente de control de costos de una empresa de servicios mineros en Argentina. Leés facturas de proveedores y las imputás. Respondés SOLO con JSON válido, sin explicaciones ni markdown.";
   const instr = `Leé esta factura y devolvé un JSON con esta forma exacta:
-{"fecha":"AAAA-MM-DD","proveedor":"","cuit":"","comprobante":"","letra":"A|B|C|X","total":0,"neto":0,"iva":0,"alicuota":21,"renglones":[{"concepto":"","imputacion":"","tipoCosto":"","monto":0}]}
+{"fecha":"AAAA-MM-DD","proveedor":"","cuit":"","comprobante":"","letra":"A|B|C|X","total":0,"neto":0,"iva":0,"alicuota":21,"percepciones":{"iibb":0,"iva":0,"ganancias":0},"renglones":[{"concepto":"","imputacion":"","tipoCosto":"","subcategoria":"","monto":0}]}
 Reglas:
 - "letra": la letra de la factura (A, B o C). Si es un ticket o no se distingue, "X".
-- Factura A: copiá "neto" e "iva" tal como figuran, sin calcularlos. Si tiene percepciones u otros impuestos, quedan dentro del total pero no del IVA.
-- Factura B o C: "iva": 0 y "neto" igual al total.
+- Factura A: copiá "neto" e "iva" tal como figuran, sin calcularlos. Si hay IVA de distintas alícuotas (por ejemplo 21% y 10,5%), sumá todos los IVA en "iva" y poné "alicuota": "varias".
+- "percepciones": copiá las percepciones que figuren en la factura: de Ingresos Brutos (IIBB, de cualquier provincia, sumadas) en "iibb", de IVA en "iva" y de Ganancias en "ganancias". Si no hay, 0. Quedan dentro del total pero no son IVA ni neto. Otros impuestos (internos, al combustible) no son percepciones.
+- Factura B o C: "iva": 0 y "neto" igual al total menos las percepciones.
 - "total": el importe final a pagar, en pesos, como número sin separadores.
 - "imputacion" tiene que ser una de estas claves (usá la clave exacta, no el nombre):
 ${opciones.map(o => `  ${o.clave} = ${o.nombre}`).join("\n") || "  (sin opciones: dejalo vacío)"}
-${esProy ? `- "tipoCosto": uno de ${M.TIPOS_COSTO.join(" | ")}.` : `- "tipoCosto": dejalo vacío.`}
+${esProy ? `- "tipoCosto": uno de ${M.TIPOS_COSTO.join(" | ")} ("Indirectos" son los gastos generales de la obra).
+- "subcategoria": una de las de su tipoCosto, exacta: ${M.TIPOS_COSTO.map(t => `${t}: ${M.subcategoriasDe(t).join(" / ")}`).join("; ")}.` : `- "tipoCosto" y "subcategoria": dejalos vacíos.`}
 - Si la factura tiene conceptos que van a imputaciones distintas, armá un renglón por cada una y repartí el total (con IVA incluido, prorrateado). La suma de los renglones tiene que dar el total.
 - Si no sabés a qué ítem va, usá la opción general${esProy ? " (g)" : ""}.
 - Si un dato no aparece, dejalo como cadena vacía.`;
@@ -116,17 +119,26 @@ function revisarFactura(d, bol, file) {
   const total0 = Number(d.total) || 0;
   const letra = String(d.letra || "").toUpperCase();
   const fiscal0 = letra === "A" && Number(d.iva) > 0 ? "A" : letra === "B" || letra === "C" ? "B" : "X";
-  const renglones = (Array.isArray(d.renglones) && d.renglones.length ? d.renglones : [{ concepto: "", imputacion: "", tipoCosto: "", monto: total0 }]).map(r => ({
-    concepto: String(r.concepto || "").slice(0, 120), imputacion: opciones.some(o => o.clave === r.imputacion) ? r.imputacion : (esProy ? "g" : ""),
-    tipoCosto: M.TIPOS_COSTO.includes(r.tipoCosto) ? r.tipoCosto : "", monto: Number(r.monto) || 0
-  }));
+  const renglones = (Array.isArray(d.renglones) && d.renglones.length ? d.renglones : [{ concepto: "", imputacion: "", tipoCosto: "", monto: total0 }]).map(r => {
+    const tipoCosto = M.TIPOS_COSTO.includes(r.tipoCosto) ? r.tipoCosto : "";
+    return {
+      concepto: String(r.concepto || "").slice(0, 120), imputacion: opciones.some(o => o.clave === r.imputacion) ? r.imputacion : (esProy ? "g" : ""),
+      tipoCosto, subcategoria: tipoCosto && M.subcategoriasDe(tipoCosto).includes(r.subcategoria) ? r.subcategoria : "", monto: Number(r.monto) || 0
+    };
+  });
+  const pr = d.percepciones || {};
+  const perc0 = { percIIBB: Number(pr.iibb) || 0, percIVA: Number(pr.iva) || 0, percGan: Number(pr.ganancias) || 0 };
+  const alic0 = String(d.alicuota).toLowerCase() === "varias" ? "varias" : (M.ALICUOTAS.includes(Number(d.alicuota)) ? Number(d.alicuota) : 21);
+  const admitePago = M.admitePrestamoSocio(bol);
   const fechaOk = /^\d{4}-\d{2}-\d{2}$/.test(d.fecha || "") ? d.fecha : hoyISO();
   const v = x => (x ? fmtMiles(x) : "");
   const optImp = sel => `<option value="">Elegí</option>` + opciones.map(o => `<option value="${esc(o.clave)}"${o.clave === sel ? " selected" : ""}>${esc(o.nombre.slice(0, 60))}</option>`).join("");
+  const optSub = (t, sel) => `<option value="">${t ? "Subcategoría" : "—"}</option>` + (t ? M.subcategoriasDe(t) : []).map(x => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join("");
   const filaR = r => `<div class="renglon${esProy ? "" : " sin-tipo"}">
     <input class="input" data-r="concepto" value="${esc(r.concepto)}" placeholder="Concepto" aria-label="Concepto">
     <select class="input" data-r="imputacion" aria-label="${esProy ? "Imputación" : "Categoría"}">${optImp(r.imputacion)}</select>
-    ${esProy ? `<select class="input" data-r="tipoCosto" aria-label="Tipo de costo"><option value="">Tipo</option>${M.TIPOS_COSTO.map(t => `<option${t === r.tipoCosto ? " selected" : ""}>${t}</option>`).join("")}</select>` : ""}
+    ${esProy ? `<select class="input" data-r="tipoCosto" aria-label="Categoría"><option value="">Categoría</option>${M.TIPOS_COSTO.map(t => `<option value="${t}"${t === r.tipoCosto ? " selected" : ""}>${esc(M.nombreCategoria(t))}</option>`).join("")}</select>
+    <select class="input" data-r="subcategoria" aria-label="Subcategoría">${optSub(r.tipoCosto, r.subcategoria)}</select>` : ""}
     <input class="input n" data-r="monto" inputmode="decimal" value="${v(r.monto)}" aria-label="Monto" style="text-align:right">
     <button type="button" class="btn-icono" data-quitar aria-label="Quitar renglón">${ICONOS.cerrar}</button></div>`;
   const md = modal("Factura leída con IA", `<form class="form abierto-a-todos" id="fr" novalidate>
@@ -139,9 +151,15 @@ function revisarFactura(d, bol, file) {
     </div>
     <div class="fila fila-movil-2">
       <div class="campo"><label for="r-total">Total en pesos</label><input id="r-total" class="monto" inputmode="decimal" value="${v(total0)}"></div>
-      <div class="campo" data-iva><label for="r-iva">IVA</label><input id="r-iva" inputmode="decimal" value="${v(Number(d.iva) || 0)}"></div>
-      <div class="campo" data-iva><label for="r-alic">Alícuota</label><select id="r-alic">${M.ALICUOTAS.map(a => `<option value="${a}"${Number(d.alicuota || 21) === a ? " selected" : ""}>${String(a).replace(".", ",")}%</option>`).join("")}</select></div>
+      <div class="campo" data-iva><label for="r-iva">IVA total</label><input id="r-iva" inputmode="decimal" value="${v(Number(d.iva) || 0)}"></div>
+      <div class="campo" data-iva><label for="r-alic">Alícuota</label><select id="r-alic">${M.ALICUOTAS.map(a => `<option value="${a}"${alic0 === a ? " selected" : ""}>${String(a).replace(".", ",")}%</option>`).join("")}<option value="varias"${alic0 === "varias" ? " selected" : ""}>Varias</option></select></div>
       <div class="campo"><label for="r-mep">Dólar MEP del día</label><input id="r-mep" inputmode="decimal"><div class="hint" id="r-mep-hint">Buscando…</div></div>
+    </div>
+    <div class="fila fila-movil-2" data-perc>
+      <div class="campo"><label for="r-percIIBB">Percepción IIBB</label><input id="r-percIIBB" inputmode="decimal" value="${v(perc0.percIIBB)}" placeholder="0"></div>
+      <div class="campo" data-iva><label for="r-percIVA">Percepción IVA</label><input id="r-percIVA" inputmode="decimal" value="${v(perc0.percIVA)}" placeholder="0"></div>
+      <div class="campo"><label for="r-percGan">Percepción Ganancias</label><input id="r-percGan" inputmode="decimal" value="${v(perc0.percGan)}" placeholder="0"></div>
+      ${admitePago ? `<div class="campo"><label for="r-pagado">Lo pagó</label><select id="r-pagado"><option value="">La cuenta de Magna</option>${SOCIOS.map(s => `<option value="${s.id}">${esc(s.nombre)} (queda como préstamo)</option>`).join("")}</select></div>` : ""}
     </div>
     <div class="bloque"><div class="bloque-tit">Renglones <span class="mute" style="font-weight:400" id="r-suma"></span></div>
       <div id="r-lista" class="form" style="gap:8px">${renglones.map(filaR).join("")}</div>
@@ -152,13 +170,19 @@ function revisarFactura(d, bol, file) {
   </form>`, { ancho: 880 });
   const q = id => $("#r-" + id, md);
   let fuente = "manual";
-  const leerR = () => $$(".renglon", md).map(row => ({ concepto: $('[data-r="concepto"]', row).value.trim(), imputacion: $('[data-r="imputacion"]', row).value, tipoCosto: esProy ? $('[data-r="tipoCosto"]', row).value : "", monto: parseMonto($('[data-r="monto"]', row).value) || 0 }));
+  const leerR = () => $$(".renglon", md).map(row => ({ concepto: $('[data-r="concepto"]', row).value.trim(), imputacion: $('[data-r="imputacion"]', row).value, tipoCosto: esProy ? $('[data-r="tipoCosto"]', row).value : "", subcategoria: esProy ? $('[data-r="subcategoria"]', row).value : "", monto: parseMonto($('[data-r="monto"]', row).value) || 0 }));
+  const leerPerc = () => {
+    const fz = q("fiscal").value;
+    if (fz !== "A" && fz !== "B") return { percIIBB: 0, percIVA: 0, percGan: 0 };
+    return { percIIBB: parseMonto(q("percIIBB").value) || 0, percIVA: fz === "A" ? (parseMonto(q("percIVA").value) || 0) : 0, percGan: parseMonto(q("percGan").value) || 0 };
+  };
   const actualizar = () => {
     const tot = parseMonto(q("total").value) || 0;
     const rs = leerR();
     const suma = rs.reduce((a, r) => a + r.monto, 0);
     q("suma").textContent = `· suman ${fmtARS(suma)}${Math.abs(suma - tot) > Math.max(1, tot * 0.005) ? ` y la factura dice ${fmtARS(tot)}` : ""}`;
     $$("[data-iva]", md).forEach(n => { n.hidden = q("fiscal").value !== "A"; });
+    $$("[data-perc] > .campo:not([data-iva])", md).forEach(n => { n.hidden = !["A", "B"].includes(q("fiscal").value) && !n.querySelector("#r-pagado"); });
     q("guardar").textContent = rs.length > 1 ? `Guardar ${rs.length} gastos` : "Guardar gasto";
     q("form").hidden = rs.length !== 1;
   };
@@ -166,7 +190,11 @@ function revisarFactura(d, bol, file) {
   $$(".renglon", md).forEach(enlazarR);
   q("add").addEventListener("click", () => { q("lista").insertAdjacentHTML("beforeend", filaR({ concepto: "", imputacion: esProy ? "g" : "", tipoCosto: "", monto: 0 })); enlazarR(q("lista").lastElementChild); actualizar(); });
   md.addEventListener("input", e => { if (e.target.id === "r-mep") fuente = "manual"; actualizar(); });
-  md.addEventListener("change", actualizar);
+  md.addEventListener("change", e => {
+    const t = e.target;
+    if (t.matches && t.matches('[data-r="tipoCosto"]')) { const sub = $('[data-r="subcategoria"]', t.closest(".renglon")); sub.innerHTML = optSub(t.value, ""); }
+    actualizar();
+  });
   const buscarMep = async () => {
     const r = await cotizacionMEP(q("fecha").value);
     if (r) { q("mep").value = fmtMiles(r.valor); fuente = r.aproximada ? "aprox" : "api"; q("mep-hint").textContent = r.aproximada ? "Sin dato para esa fecha: se usó la de hoy." : "MEP de esa fecha."; }
@@ -177,13 +205,16 @@ function revisarFactura(d, bol, file) {
 
   const datosComunes = () => ({
     fecha: q("fecha").value, proveedor: q("prov").value.trim(), comprobante: q("comp").value.trim(), fiscal: q("fiscal").value,
-    alicuota: Number(q("alic").value) || 21, cotizacion: parseMonto(q("mep").value) || 0, cotizacionFuente: fuente
+    alicuota: q("alic").value === "varias" ? "varias" : (Number(q("alic").value) || 21), cotizacion: parseMonto(q("mep").value) || 0, cotizacionFuente: fuente,
+    pagadoPor: q("pagado") ? q("pagado").value : ""
   });
   q("form").addEventListener("click", () => {
     const c = datosComunes(), r = leerR()[0];
-    prefill = { tipo: "egreso", clase: "gasto", bolsillo: bol, fecha: c.fecha, proveedor: c.proveedor, comprobante: c.comprobante, fiscal: c.fiscal, alicuota: c.alicuota,
-      montoARS: r.monto || parseMonto(q("total").value) || 0, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto,
-      cotizacion: c.cotizacion || undefined, cotizacionFuente: c.cotizacion ? c.cotizacionFuente : undefined, leidoConIA: true };
+    const iva = c.fiscal === "A" ? (parseMonto(q("iva").value) || 0) : 0;
+    prefill = Object.assign({ tipo: "egreso", clase: "gasto", bolsillo: bol, fecha: c.fecha, proveedor: c.proveedor, comprobante: c.comprobante, fiscal: c.fiscal, alicuota: c.alicuota,
+      montoARS: r.monto || parseMonto(q("total").value) || 0, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, subcategoria: r.subcategoria,
+      ivaARS: iva || undefined, pagadoPor: c.pagadoPor,
+      cotizacion: c.cotizacion || undefined, cotizacionFuente: c.cotizacion ? c.cotizacionFuente : undefined, leidoConIA: true }, leerPerc());
     cerrarModal(); app.ir("cargar");
   });
   $("#fr", md).addEventListener("submit", e => {
@@ -192,6 +223,8 @@ function revisarFactura(d, bol, file) {
     const rs = leerR();
     const tot = parseMonto(q("total").value) || 0;
     const iva = c.fiscal === "A" ? (parseMonto(q("iva").value) || 0) : 0;
+    const pc = leerPerc();
+    const perc = pc.percIIBB + pc.percIVA + pc.percGan;
     const suma = rs.reduce((a, r) => a + r.monto, 0);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.fecha)) return toast("Falta la fecha.", "error");
     if (!(tot > 0)) return toast("Falta el total.", "error");
@@ -199,17 +232,26 @@ function revisarFactura(d, bol, file) {
     if (!(c.cotizacion > 0)) return toast("Falta el dólar MEP del día.", "error");
     if (rs.some(r => !r.imputacion)) return toast(esProy ? "Hay un renglón sin imputación." : "Hay un renglón sin categoría.", "error");
     if (iva < 0 || iva >= tot) return toast("Revisá el IVA.", "error");
+    if (c.fiscal === "A" && c.alicuota === "varias" && !(iva > 0)) return toast("Con varias alícuotas, cargá el IVA total.", "error");
+    if (iva + perc >= tot) return toast("El IVA más las percepciones tiene que ser menor que el total.", "error");
+    if (esProy && rs.some(r => !r.tipoCosto)) return toast("Hay un renglón sin categoría (mano de obra, materiales…).", "error");
+    if (esProy && rs.some(r => !r.subcategoria && M.subcategoriasDe(r.tipoCosto).length)) return toast("Hay un renglón sin subcategoría.", "error");
     const ahora = new Date().toISOString();
     const admin = PER.esAdmin();
+    const parte = (v, r) => (tot ? Math.round(v * r.monto / tot * 100) / 100 : 0);
     rs.forEach(r => {
-      const ivaR = tot ? Math.round(iva * r.monto / tot * 100) / 100 : 0;
-      (admin ? (x => guardar("movimientos", x)) : (x => PER.proponer({ coleccion: "movimientos", accion: "alta", datos: x })))({
+      const ivaR = parte(iva, r);
+      const x = {
         tipo: "egreso", clase: "gasto", fecha: c.fecha, bolsillo: bol, destino: "", cuenta: (S.cuentas[0] || {}).id || "c_magna",
         montoARS: Math.round(r.monto * 100) / 100, cotizacion: c.cotizacion, cotizacionFuente: c.cotizacionFuente, montoUSD: Math.round(r.monto / c.cotizacion * 100) / 100,
-        proveedor: c.proveedor, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, fiscal: c.fiscal,
-        alicuota: ivaR > 0 ? c.alicuota : 0, ivaARS: ivaR, comprobante: c.comprobante, recuperable: bol === "MAGNA",
+        proveedor: c.proveedor, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, subcategoria: r.subcategoria, fiscal: c.fiscal,
+        alicuota: ivaR > 0 ? c.alicuota : 0, ivaARS: ivaR, percIIBB: parte(pc.percIIBB, r), percIVA: parte(pc.percIVA, r), percGan: parte(pc.percGan, r),
+        comprobante: c.comprobante, recuperable: bol === "MAGNA", pagadoPor: c.pagadoPor || "",
         socio: "", tasa: null, notas: "Leído con IA", leidoConIA: true, creadoPor: app.usuario.socio, creadoEl: ahora
-      });
+      };
+      if (!admin) return PER.proponer({ coleccion: "movimientos", accion: "alta", datos: x });
+      const g = guardar("movimientos", x);
+      if (g && g.pagadoPor) GS.sincronizarPrestamo(g, app.usuario.socio);
     });
     if (admin && c.proveedor && !S.proveedores.some(p => p.nombre.toLowerCase() === c.proveedor.toLowerCase())) guardar("proveedores", { nombre: c.proveedor, cuit: d.cuit || "", rubro: "", notas: "", creadoPor: app.usuario.socio });
     cerrarModal();
@@ -233,6 +275,8 @@ async function interpretarTexto(t, bolActual) {
     imputaciones_por_proyecto: Object.fromEntries(proyectos.map(p => [p.id, opcionesImputacion(p.id).map(o => o.clave + " = " + o.nombre)])),
     categorias: { ESTRUCTURA: M.categoriasDe("ESTRUCTURA"), MAGNA: M.categoriasDe("MAGNA"), RESERVA: M.categoriasDe("RESERVA") },
     tipos_de_costo: M.TIPOS_COSTO,
+    subcategorias: Object.fromEntries(M.TIPOS_COSTO.map(t => [t, M.subcategoriasDe(t)])),
+    socio_que_escribe: app.usuario ? app.usuario.socio : "",
     socios: SOCIOS.map(s => s.id + " = " + s.nombre),
     proveedores_conocidos: S.proveedores.map(p => p.nombre).slice(0, 80)
   };
@@ -240,7 +284,7 @@ async function interpretarTexto(t, bolActual) {
   const instr = `Frase: "${t}"
 
 Devolvé este JSON:
-{"tipo":"egreso|ingreso|pase","clase":"","fecha":"AAAA-MM-DD","montoARS":0,"bolsillo":"","destino":"","proveedor":"","concepto":"","imputacion":"","tipoCosto":"","fiscal":"A|B|S|X","socio":"","tasa":null}
+{"tipo":"egreso|ingreso|pase","clase":"","fecha":"AAAA-MM-DD","montoARS":0,"bolsillo":"","destino":"","proveedor":"","concepto":"","imputacion":"","tipoCosto":"","subcategoria":"","fiscal":"A|B|S|X","socio":"","tasa":null,"pagadoPor":""}
 Reglas:
 - Un pago o compra es tipo "egreso" clase "gasto". Plata que entra es "ingreso". Pasar plata entre bolsillos (préstamo de Magna a un proyecto, reserva de impuestos) es "pase", con "bolsillo" de origen y "destino".
 - "fecha": interpretá "hoy", "ayer", "el lunes" desde la fecha de hoy. Si no dice, hoy.
@@ -249,6 +293,8 @@ Reglas:
 - Para un gasto de proyecto, "imputacion" es una clave de imputaciones_por_proyecto de ese proyecto; si no sabés a qué ítem va, "g". Para Estructura, Magna o Reserva, "imputacion" es "c:" + la categoría.
 - "fiscal": "A" si dice factura A, "B" si dice factura B o C, "S" si son sueldos, cargas sociales, tasas o impuestos, "X" si dice sin factura o en negro; si no dice, "A".
 - "socio": id del socio solo para aportes, préstamos, devoluciones, distribuciones u honorarios.
+- "pagadoPor": en un gasto, id del socio si la frase dice que lo pagó un socio con su plata o su tarjeta ("lo pagó José", "puse yo" dicho por un socio); si no, vacío.
+- "tipoCosto" y "subcategoria": para gastos de proyecto, de tipos_de_costo y subcategorias (exactas).
 - Si un dato no aparece, cadena vacía.
 
 Contexto:
@@ -266,6 +312,8 @@ ${JSON.stringify(ctx)}`;
   out.concepto = String(d.concepto || "").slice(0, 120);
   if (opcionesImputacion(out.bolsillo).some(o => o.clave === d.imputacion)) out.imputacion = d.imputacion;
   if (M.TIPOS_COSTO.includes(d.tipoCosto)) out.tipoCosto = d.tipoCosto;
+  if (out.tipoCosto && M.subcategoriasDe(out.tipoCosto).includes(d.subcategoria)) out.subcategoria = d.subcategoria;
+  if (out.tipo === "egreso" && out.clase === "gasto" && SOCIOS.some(s => s.id === d.pagadoPor) && M.admitePrestamoSocio(out.bolsillo)) out.pagadoPor = d.pagadoPor;
   out.fiscal = ["A", "B", "S", "X"].includes(d.fiscal) ? d.fiscal : "A";
   if (SOCIOS.some(s => s.id === d.socio)) out.socio = d.socio;
   if (Number(d.tasa) > 0) out.tasa = Number(d.tasa);

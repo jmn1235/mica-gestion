@@ -327,3 +327,15 @@ La guía para los socios está en `ayuda.html` (también se abre desde el menú:
 ## Íconos
 
 La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`) y como ícono de la app en el celular (`img/icon-192.png`, `img/icon-512.png`, `img/icon-maskable-512.png`, `img/apple-touch-icon.png`). Si la app ya estaba instalada en el celular, hay que desinstalarla y volver a instalarla para que tome el ícono nuevo.
+
+## Novedades de la versión 8
+
+- **Carga de gastos:** «Asignar costo a» en lugar de «Se paga desde», y «Monto total en pesos» (el total de la factura, con IVA y percepciones). Debajo se ve el desglose: neto, IVA, percepciones y total.
+- **IVA «Varias»:** para facturas con renglones de distintas alícuotas; se carga el IVA total a mano.
+- **Percepciones** de IIBB, IVA y Ganancias en las compras (carga manual y lectura de facturas con IA). No son costo: bajan lo que queda por pagar de cada impuesto.
+- **Categoría y subcategoría** en cada gasto de obra, además de la imputación. Las categorías son fijas (alimentan la base de costos); las subcategorías se editan en Ajustes → Cuentas y categorías. Mano de obra trae Quincenas, Sueldo mensual, Honorarios (sin relación de dependencia), Aporte gremial y Formulario 931.
+- **Gasto pagado por un socio:** al marcarlo, la app crea un préstamo vinculado del socio al proyecto (id del gasto + `__prest`), con la tasa de Ajustes → Impuestos e IA. Se edita y se borra junto con el gasto. Para los operativos, el préstamo nace al aprobar el pedido.
+- **Planilla para la contadora** (Exportar y datos): en pesos, por mes o rango, con compras con factura, ventas, retenciones, sueldos y cargas, gastos sin factura aparte y un resumen mensual con fórmulas.
+- **Excel con formato** en todas las exportaciones (ExcelJS desde cdnjs): encabezados con los colores de MICA, filtros, fila de títulos fija, montos y fechas con formato, totales con SUBTOTAL y hoja «Léeme».
+- Las reglas de Firestore no cambian respecto de la versión 7.
+

@@ -11,6 +11,7 @@ import { S, guardar, mandarAPapelera, fijarGuardia, nuevoId, prefijo } from "./d
 import { app } from "./contexto.js";
 import { TITULAR_MAGNA, SOCIOS } from "./config.js";
 import * as M from "./modelo.js";
+import * as GS from "./gastoSocio.js";
 import { toast, fmtARS, fmtFecha, mesLabel, ICONOS } from "./ui.js";
 
 export const ROLES = [
@@ -114,7 +115,8 @@ export function aprobar(sol, corregido) {
   const yo = app.usuario.socio;
   const actual = (S[sol.coleccion] || []).find(x => x.id === sol.docId) || null;
   if (sol.accion === "baja") {
-    if (actual) mandarAPapelera(sol.coleccion, actual, sol.autor);
+    if (actual && sol.coleccion === "movimientos") GS.borrarMovimiento(actual, sol.autor);
+    else if (actual) mandarAPapelera(sol.coleccion, actual, sol.autor);
   } else {
     const datos = Object.assign({}, corregido || sol.datos);
     const firma = { aprobadoPor: yo, aprobadoEl: ahora, solicitud: sol.id };
@@ -130,7 +132,9 @@ export function aprobar(sol, corregido) {
       if (!actual) { d.cargadoPor = sol.autor; d.cargadoEl = sol.creadoEl; }
       d.modificadoPor = sol.autor;
     }
-    guardar(sol.coleccion, d);
+    const g = guardar(sol.coleccion, d);
+    // Gasto pagado por un socio: al aprobarlo nace (o se ajusta) su préstamo.
+    if (g && sol.coleccion === "movimientos" && (g.pagadoPor || GS.prestamoDe(g))) GS.sincronizarPrestamo(g, yo);
   }
   guardar("solicitudes", Object.assign({}, sol, { estado: "aprobada", resueltoPor: yo, resueltoEl: ahora, corregido: !!corregido, datosAplicados: corregido ? limpio(corregido) : null }));
 }
@@ -154,17 +158,21 @@ export function resumen(col, d) {
 const CAMPOS_MOV = [
   ["fecha", "Fecha", v => fmtFecha(v)], ["bolsillo", "Proyecto", v => M.nombreBolsillo(v)], ["montoARS", "Monto", v => fmtARS(v)],
   ["cotizacion", "Dólar MEP", v => String(v || "").replace(".", ",")], ["proveedor", "Proveedor"], ["concepto", "Concepto"],
-  ["imputacion", "Imputación", (v, d) => M.nombreImputacion(Object.assign({}, d, { imputacion: v }), 60)], ["tipoCosto", "Tipo de costo"],
+  ["imputacion", "Imputación", (v, d) => M.nombreImputacion(Object.assign({}, d, { imputacion: v }), 60)], ["tipoCosto", "Categoría", v => M.nombreCategoria(v)],
+  ["subcategoria", "Subcategoría"],
   ["fiscal", "Comprobante", v => (M.FISCAL.find(x => x.id === v) || {}).nombre || v || "—"],
-  ["ivaARS", "IVA", v => fmtARS(v)], ["comprobante", "N° de comprobante"], ["notas", "Notas"]
+  ["alicuota", "Alícuota de IVA", v => (Number(v) || v === "varias" ? M.nombreAlicuota(v) : "")], ["ivaARS", "IVA", v => (Number(v) ? fmtARS(v) : "")],
+  ["percIIBB", "Percepción de IIBB", v => (Number(v) ? fmtARS(v) : "")], ["percIVA", "Percepción de IVA", v => (Number(v) ? fmtARS(v) : "")], ["percGan", "Percepción de Ganancias", v => (Number(v) ? fmtARS(v) : "")],
+  ["pagadoPor", "Lo pagó (préstamo)", v => M.socioNombre(v)],
+  ["comprobante", "N° de comprobante"], ["notas", "Notas"]
 ];
 export function diferencias(sol, datos = sol.datos) {
   const ant = sol.anterior || {};
   if (sol.coleccion === "movimientos") {
     return CAMPOS_MOV.map(([k, nombre, f]) => {
       const a = ant[k], b = (datos || {})[k];
-      const fa = a == null || a === "" ? "—" : f ? f(a, ant) : String(a);
-      const fb = b == null || b === "" ? "—" : f ? f(b, datos) : String(b);
+      const fa = a == null || a === "" ? "—" : f ? f(a, ant) || "—" : String(a);
+      const fb = b == null || b === "" ? "—" : f ? f(b, datos) || "—" : String(b);
       return { campo: nombre, antes: fa, despues: fb, cambia: sol.accion === "modificacion" && fa !== fb };
     });
   }

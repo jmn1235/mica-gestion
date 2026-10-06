@@ -77,7 +77,20 @@ export const pideSocio = (tipo, clase) =>
 export const pideTasa = (tipo, clase) => clase === "prestamo" && (tipo === "ingreso" || tipo === "pase");
 export const llevaIVA = (tipo, clase) => (tipo === "egreso" && clase === "gasto") || (tipo === "ingreso" && ["cobro", "anticipo"].includes(clase));
 
+/* Categorías de costo de obra (fijas: alimentan la base de costos) y sus subcategorías (editables en Ajustes). */
 export const TIPOS_COSTO = ["Materiales", "Mano de obra", "Equipos", "Subcontratos", "Indirectos"];
+export const nombreCategoria = t => (t === "Indirectos" ? "Indirectos y gastos generales" : t || "");
+export const SUBCATEGORIAS_DEF = {
+  "Materiales": ["Materiales de obra", "Repuestos y accesorios", "EPP y ropa de trabajo", "Herramientas y consumibles", "Otros materiales"],
+  "Mano de obra": ["Quincenas", "Sueldo mensual", "Honorarios (sin relación de dependencia)", "Aporte gremial", "Formulario 931 (cargas sociales)", "Otros de mano de obra"],
+  "Equipos": ["Alquiler de equipos", "Combustible y lubricantes", "Mantenimiento y reparaciones", "Fletes de equipos", "Otros de equipos"],
+  "Subcontratos": ["Subcontratos de obra", "Servicios técnicos y profesionales", "Ensayos y laboratorio", "Otros subcontratos"],
+  "Indirectos": ["Combustible de movilidad", "Alojamiento", "Comidas y viáticos", "Traslados y pasajes", "Campamento y servicios", "Seguros", "Comunicaciones", "Otros gastos generales"]
+};
+export function subcategoriasDe(tipo) {
+  const g = (S.config.general || {}).subcategorias || {};
+  return Array.isArray(g[tipo]) ? g[tipo] : (SUBCATEGORIAS_DEF[tipo] || []);
+}
 export const FISCAL = [
   { id: "A", nombre: "Factura A", iva: true },
   { id: "B", nombre: "B o C", iva: false },
@@ -85,6 +98,19 @@ export const FISCAL = [
   { id: "X", nombre: "Sin factura", iva: false }
 ];
 export const ALICUOTAS = [21, 10.5, 27, 0];
+/* "varias": la factura tiene renglones con distintas alícuotas; el IVA total se carga a mano. */
+export const nombreAlicuota = a => (a === "varias" ? "Varias" : a == null || a === "" ? "" : String(a).replace(".", ",") + "%");
+/* Percepciones que vienen en las facturas de compra: son pagos a cuenta de impuestos de Magna, no costo. */
+export const PERCEPCIONES = [
+  { k: "percIIBB", nombre: "Percepción de IIBB" },
+  { k: "percIVA", nombre: "Percepción de IVA" },
+  { k: "percGan", nombre: "Percepción de Ganancias" }
+];
+export const percepciones = m => (Number(m.percIIBB) || 0) + (Number(m.percIVA) || 0) + (Number(m.percGan) || 0);
+/* Tasa anual en dólares de los préstamos que nacen de gastos pagados por un socio. */
+export const tasaGastosSocios = () => Number((S.config.general || {}).tasaGastosSocios) || 0;
+/* Bolsillos donde un gasto pagado por un socio puede quedar como préstamo suyo. */
+export const admitePrestamoSocio = bol => bol === "ESTRUCTURA" || esBolsilloProyecto(bol);
 
 export const socioNombre = id => (SOCIOS.find(s => s.id === id) || {}).nombre || id || "";
 
@@ -122,7 +148,8 @@ export function nombreImputacion(m, largo = 999) {
 /* ---------- valuación ---------- */
 export const usd = m => (m.cotizacion > 0 ? (Number(m.montoARS) || 0) / m.cotizacion : 0);
 /* Neto de IVA. En los cobros se suman las retenciones sufridas: no entran al banco, pero son parte de lo facturado. */
-export const netoArs = m => (Number(m.montoARS) || 0) + (Number(m.retencionesARS) || 0) - (Number(m.ivaARS) || 0);
+/* En las compras se descuentan también las percepciones: van dentro del total de la factura pero no son costo. */
+export const netoArs = m => (Number(m.montoARS) || 0) + (Number(m.retencionesARS) || 0) - (Number(m.ivaARS) || 0) - percepciones(m);
 export const netoUsd = m => (m.cotizacion > 0 ? netoArs(m) / m.cotizacion : 0);
 /* Monto neto de IVA en la moneda del contrato (pesos nominales o dólares MEP). */
 export const netoEn = (m, moneda) => (moneda === "ARS" ? netoArs(m) : netoUsd(m));
@@ -360,7 +387,7 @@ const esBanco = m => { const c = S.cuentas.find(x => x.id === (m.cuenta || "c_ma
    Las retenciones sufridas son pagos a cuenta: bajan lo que queda por pagar, no el costo. */
 export function impuestosDe(p, r) {
   const t = parametrosImpuestos();
-  const x = { param: t, iibbArs: 0, iibbUsd: 0, retIibbArs: 0, retIibbUsd: 0, chequeArs: 0, chequeUsd: 0, retGanArs: 0, retGanUsd: 0, retIvaArs: 0, retOtrasArs: 0, deduciblesUsd: 0 };
+  const x = { param: t, iibbArs: 0, iibbUsd: 0, retIibbArs: 0, retIibbUsd: 0, percIibbArs: 0, percGanArs: 0, percGanUsd: 0, percIvaArs: 0, chequeArs: 0, chequeUsd: 0, retGanArs: 0, retGanUsd: 0, retIvaArs: 0, retOtrasArs: 0, deduciblesUsd: 0 };
   S.movimientos.forEach(m => {
     if (m.bolsillo !== p.id) return;
     if (esVenta(m)) {
@@ -370,7 +397,14 @@ export function impuestosDe(p, r) {
       x.retIvaArs += Number(m.retIVA) || 0; x.retOtrasArs += Number(m.retOtras) || 0;
       if (m.cotizacion > 0) { x.retIibbUsd += (Number(m.retIIBB) || 0) / m.cotizacion; x.retGanUsd += (Number(m.retGan) || 0) / m.cotizacion; }
     }
-    if ((m.tipo === "ingreso" || m.tipo === "egreso") && esBanco(m)) {
+    // Percepciones sufridas en las compras: pagos a cuenta, igual que las retenciones de los cobros.
+    if (esCosto(m)) {
+      const pi = Number(m.percIIBB) || 0, pg = Number(m.percGan) || 0;
+      x.percIibbArs += pi; x.percGanArs += pg; x.percIvaArs += Number(m.percIVA) || 0;
+      if (m.cotizacion > 0) x.percGanUsd += pg / m.cotizacion;
+    }
+    // Un gasto pagado por un socio y su préstamo no pasan por el banco: no generan impuesto al cheque.
+    if ((m.tipo === "ingreso" || m.tipo === "egreso") && esBanco(m) && !m.pagadoPor && !m.gastoVinculado) {
       const pct = (m.tipo === "ingreso" ? t.chequeCredito : t.chequeDebito) / 100;
       x.chequeArs += (Number(m.montoARS) || 0) * pct;
       x.chequeUsd += usd(m) * pct;
@@ -383,8 +417,8 @@ export function impuestosDe(p, r) {
   x.baseGananciasUsd = r.ventasUsd - x.deduciblesUsd - x.iibbUsd - (x.chequeUsd - x.chequeComputableUsd);
   x.gananciasUsd = Math.max(0, x.baseGananciasUsd * t.ganancias / 100);
   x.gananciasCostoUsd = Math.max(0, x.gananciasUsd - x.chequeComputableUsd);
-  x.gananciasAPagarUsd = x.gananciasUsd - x.retGanUsd - x.chequeComputableUsd;
-  x.iibbAPagarArs = x.iibbArs - x.retIibbArs;
+  x.gananciasAPagarUsd = x.gananciasUsd - x.retGanUsd - x.percGanUsd - x.chequeComputableUsd;
+  x.iibbAPagarArs = x.iibbArs - x.retIibbArs - x.percIibbArs;
   x.extraInformalUsd = r.sinFacturaUsd * t.ganancias / 100;
   return x;
 }
@@ -404,7 +438,7 @@ export function resumenProyecto(p, opciones = {}) {
   const r = {
     proyecto: p, moneda: mon, contrato: montoContrato(p),
     ventasUsd: 0, ventasMon: 0, costosUsd: 0, costosMon: 0, ivaCompras: 0, ivaVentas: 0,
-    sinFacturaUsd: 0, nCostos: 0, porImputacion: {}, porImputacionMon: {}, porTipo: {}, porMes: {},
+    sinFacturaUsd: 0, nCostos: 0, porImputacion: {}, porImputacionMon: {}, porTipo: {}, porSubcat: {}, porMes: {},
     saldo: saldoDe(conj), prestamos: prestamosDe(p.id, opciones.corte), aportes: aportesDe(p.id), movs
   };
   movs.forEach(m => {
@@ -425,6 +459,8 @@ export function resumenProyecto(p, opciones = {}) {
       r.porImputacionMon[k] = (r.porImputacionMon[k] || 0) + netoEn(m, mon);
       const t = m.tipoCosto || "Sin tipo";
       r.porTipo[t] = (r.porTipo[t] || 0) + c;
+      const sc = t + "|" + (m.subcategoria || "Sin subcategoría");
+      r.porSubcat[sc] = (r.porSubcat[sc] || 0) + c;
       r.porMes[mes].costos += c;
     }
   });
