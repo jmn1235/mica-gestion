@@ -354,7 +354,7 @@ function impuestosIA(cont, soloIA) {
       <form class="form" id="fimp" novalidate>
         <div class="fila fila-movil-2">
           <div class="campo"><label for="t-iibb">Ingresos Brutos (% de lo facturado neto)</label><input id="t-iibb" inputmode="decimal" value="${v(t.iibb)}"></div>
-          <div class="campo"><label for="t-gan">Ganancias (% del resultado impositivo)</label><input id="t-gan" inputmode="decimal" value="${v(t.ganancias)}"></div>
+          <div class="campo"><label for="t-gan">Ganancias: tasa efectiva general (% del resultado impositivo)</label><input id="t-gan" inputmode="decimal" value="${v(t.gananciasEfectiva)}"><div class="hint">Lo que en la práctica termina pagando Magna, según la contadora (la alícuota legal es mayor). Cada proyecto la puede cambiar en Impuestos.</div></div>
         </div>
         <div class="fila fila-movil-2">
           <div class="campo"><label for="t-chc">Impuesto al cheque, créditos (%)</label><input id="t-chc" inputmode="decimal" value="${v(t.chequeCredito)}"></div>
@@ -381,7 +381,7 @@ function impuestosIA(cont, soloIA) {
   const leerT = id => { const x = parseMonto($(id, cont).value); return isNaN(x) ? null : x; };
   $("#fimp", cont).addEventListener("submit", e => {
     e.preventDefault();
-    const d = { iibb: leerT("#t-iibb"), ganancias: leerT("#t-gan"), chequeCredito: leerT("#t-chc"), chequeDebito: leerT("#t-chd"), chequeComputable: leerT("#t-chp") };
+    const d = { iibb: leerT("#t-iibb"), ganancias: t.ganancias, gananciasEfectiva: leerT("#t-gan"), chequeCredito: leerT("#t-chc"), chequeDebito: leerT("#t-chd"), chequeComputable: leerT("#t-chp") };
     if (Object.values(d).some(x => x == null || x < 0 || x > 100)) return toast("Revisá las tasas: tienen que ser porcentajes entre 0 y 100.", "error");
     const tps = $("#t-tps", cont).value.trim() ? leerT("#t-tps") : 0;
     if (tps == null || tps < 0 || tps > 200) return toast("Revisá la tasa de los gastos pagados por socios.", "error");
@@ -573,7 +573,7 @@ async function exportarExcel() {
     "Percepción IIBB ARS": r2(m.percIIBB), "Percepción IVA ARS": r2(m.percIVA), "Percepción Ganancias ARS": r2(m.percGan), "Neto ARS": r2(M.netoArs(m)), "Dólar MEP": r2(m.cotizacion), "Monto USD": r2(M.usd(m)), "Neto USD": r2(M.netoUsd(m)),
     "Ret. Ganancias": r2(m.retGan), "Ret. IIBB": r2(m.retIIBB), "Ret. IVA": r2(m.retIVA), "Ret. otras": r2(m.retOtras), "TC de pago": m.tcPago || "",
     Certificado: m.certificado ? (C.tituloDoc(S.certificados.find(c => c.id === m.certificado) || {}) || "") : "",
-    Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", "Pagado por (préstamo)": m.pagadoPor ? M.socioNombre(m.pagadoPor) : "", "Vinculado a gasto": m.gastoVinculado ? "Sí" : "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", "Aprobado por": m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", Id: m.id
+    Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", "Pagado por (préstamo)": m.pagadoPor ? M.socioNombre(m.pagadoPor) : "", "Vinculado a gasto": m.gastoVinculado ? "Sí" : "", "Devolución (operación)": m.operacion || "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", "Aprobado por": m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", Id: m.id
   }));
   const hProy = M.proyectosOrdenados().map(p => { const r = M.resumenProyecto(p); return {
     Proyecto: p.nombre, "Código": p.codigo || "", Cliente: p.cliente || "", Estado: (M.ESTADOS_PROYECTO.find(e => e.id === p.estado) || {}).nombre || "", Moneda: p.moneda,
@@ -616,7 +616,8 @@ async function exportarExcel() {
     }));
     r.prestamos.forEach(g => g.tramos.forEach(t => hPrest.push({
       Proyecto: p.nombre, Prestamista: g.nombre, Fecha: t.fecha, "Capital ARS": r2(t.capitalArs), "Capital USD": r2(t.capital), "Tasa anual %": t.tasa,
-      "Interés devengado USD": r2(t.devengado), "Saldo USD": r2(t.cap + t.int)
+      "Interés devengado USD": r2(t.devengado), "Devuelto USD": r2(t.pagos.reduce((x, y) => x + y.int + y.cap, 0)), "Saldo USD": r2(t.cap + t.int),
+      Estado: ({ pendiente: "Pendiente", parcial: "Devuelto en parte", devuelto: "Devuelto" })[t.estado] || "", Detalle: t.mov.concepto || ""
     })));
     r.honorarios.porAcuerdo.forEach(x => x.detalle.forEach(d => hHon.push({
       Proyecto: p.nombre, Socio: M.socioNombre(x.acuerdo.socio), Concepto: x.acuerdo.concepto || "", Modo: x.modo.nombre, Mes: d.mes, "Base USD": d.base == null ? "" : r2(d.base), "Honorario USD": r2(d.monto)
@@ -665,7 +666,7 @@ async function exportarExcel() {
   hoja(hAvance, "Avance físico", [20, 9, 6, 50, 8, 10, 14], "Cantidades ejecutadas por mes en cada ítem.");
   hoja(hImp, "Impuestos", [20, 18, 12, 14, 18, 14, 12, 16, 16, 16, 16, 16, 14, 14], "Impuestos estimados por proyecto y lo que falta reservar.", ["IIBB USD", "Impuesto al cheque USD", "Ganancias USD", "A reservar ARS", "Reservado ARS", "Falta reservar ARS"]);
   hoja(hSocios, "Socios", [20, 12, 14, 14, 14, 14, 20, 14, 14], "Cuenta de cada socio en cada proyecto y el total de MICA.");
-  hoja(hPrest, "Préstamos", [20, 24, 11, 16, 14, 12, 18, 14], "Cada préstamo recibido por los proyectos, con su tasa, el interés devengado y el saldo.", ["Capital ARS", "Capital USD", "Interés devengado USD", "Saldo USD"]);
+  hoja(hPrest, "Préstamos", [20, 24, 11, 16, 14, 12, 18, 14, 14, 16, 34], "Cada préstamo recibido por los proyectos, con su tasa, el interés devengado y el saldo.", ["Capital ARS", "Capital USD", "Interés devengado USD", "Saldo USD"]);
   hoja(hHon, "Honorarios", [20, 12, 28, 30, 9, 12, 14], "Honorarios reconocidos a los socios, mes por mes.", ["Honorario USD"]);
   hoja(hCert, "Certificados", [20, 7, 30, 9, 11, 12, 12, 12, 12, 12, 12, 16, 12, 11, 12, 12, 12, 14, 14, 26], "Certificados, anticipos y fondos de reparo: facturación, cobranza, retenciones y saldo.");
   hoja(hBol, "Saldos por bolsillo", [30, 16, 20], "Saldo de cada bolsillo dentro de la cuenta de Magna.", ["Saldo ARS"]);

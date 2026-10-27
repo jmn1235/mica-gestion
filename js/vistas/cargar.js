@@ -68,6 +68,13 @@ export function render(el, params) {
     });
     return;
   }
+  if (m0 && m0.operacion) {
+    const n = S.movimientos.filter(x => x.operacion === m0.operacion).length;
+    el.innerHTML = cabecera("", "Devolución de préstamos", `${esc(M.socioNombre(m0.socio))} · ${fmtFecha(m0.fecha, true)}`) + `<div class="panel" style="max-width:640px">
+      <p style="margin-top:0">Esta devolución se registró desde la ficha de ${esc(M.socioNombre(m0.socio))}${n > 1 ? `, junto con otras ${n - 1} del mismo pago` : ""}, y dice qué préstamos cancela. Para corregirla, anulala desde la ficha y cargala de nuevo.</p>
+      <div class="form-pie"><a class="btn btn-pri" href="#socio/${encodeURIComponent(m0.socio)}">Abrir la ficha</a><a class="btn btn-sec" href="#movimientos">Volver</a></div></div>`;
+    return;
+  }
   if (m0 && m0.gastoVinculado) {
     const g = GS.gastoDe(m0);
     el.innerHTML = cabecera("", "Préstamo por un gasto pagado por un socio", `${esc(M.socioNombre(m0.socio))} · ${fmtFecha(m0.fecha, true)}`) + `<div class="panel" style="max-width:640px">

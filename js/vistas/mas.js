@@ -24,6 +24,7 @@ export function render(el) {
       <a href="#cierre">${ICONOS.cierre}<span>Cierre de mes</span></a>
       <a href="#liquidacion">${ICONOS.bandera}<span>Cierre de proyecto</span></a>
       <a href="#socios">${ICONOS.socios}<span>Socios</span></a>
+      <a href="#socio">${ICONOS.base}<span>Préstamos por socio</span></a>
       <a href="#impuestos">${ICONOS.impuestos}<span>Impuestos</span></a>
       <a href="#base">${ICONOS.base}<span>Base de costos</span></a>
       <a href="#preguntar">${ICONOS.preguntar}<span>Preguntar</span></a>
@@ -37,6 +38,6 @@ export function render(el) {
       <button type="button" id="mas-salir">${ICONOS.salir}<span>Salir</span></button>
     </nav>
   </section>
-  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 8</p>`;
+  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 9</p>`;
   el.querySelector("#mas-salir").addEventListener("click", () => app.salir());
 }

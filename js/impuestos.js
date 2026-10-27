@@ -74,7 +74,7 @@ export function reservaProyecto(p, r = M.resumenProyecto(p)) {
     { k: "iva", nombre: "IVA", ars: Math.max(0, iva.saldo) },
     { k: "iibb", nombre: "Ingresos Brutos", ars: Math.max(0, x.iibbAPagarArs) },
     { k: "cheque", nombre: "Impuesto al cheque", ars: x.chequeArs },
-    { k: "ganancias", nombre: "Ganancias", ars: Math.max(0, x.gananciasAPagarUsd) * mep }
+    { k: "ganancias", nombre: "Ganancias", ars: Math.max(0, x.gananciasAPagarArs != null ? x.gananciasAPagarArs : x.gananciasAPagarUsd * mep) }
   ];
   const aReservar = conceptos.reduce((a, c) => a + c.ars, 0);
   const reservado = S.movimientos.filter(m => m.tipo === "pase" && m.clase === "reserva" && m.bolsillo === p.id && m.destino === "RESERVA").reduce((a, m) => a + n(m.montoARS), 0)

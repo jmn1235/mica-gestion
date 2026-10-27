@@ -6,6 +6,7 @@
 import { S } from "../db.js";
 import { app } from "../contexto.js";
 import * as M from "../modelo.js";
+import { tablaPagosACuenta, textoGanancias } from "./impuestos.js";
 import * as P from "../presupuesto.js";
 import * as C from "../certificados.js";
 import * as I from "../impuestos.js";
@@ -152,12 +153,14 @@ function panelResultado(p, liq, sg) {
       ${fila("<b>Resultado antes de impuestos</b>", r.resultadoUsd, "sub")}
       ${fila(`Ingresos Brutos (${String(x.param.iibb).replace(".", ",")}%)`, -x.iibbUsd)}
       ${fila("Impuesto al cheque", -x.chequeUsd)}
-      ${fila("Ganancias", -x.gananciasCostoUsd)}
+      ${fila(`Ganancias<small class="mute" style="display:block">${esc(textoGanancias(x))} · <a href="#impuestos" class="no-imprimir">cambiar</a></small>`, -x.gananciasCostoUsd)}
       ${fila("<b>Neto de impuestos</b>", r.resultadoNetoUsd, "sub")}
       ${liq.asignado ? fila("Parte de estructura y de Magna, neta de Ganancias", -liq.asignadoNeto) : ""}
       <tr><td>Diferencia de cambio y redondeos<small class="mute" style="display:block">La caja está en pesos y las cuentas en dólares de cada día: es lo que se ganó o perdió por tener pesos.</small></td><td class="n">${u(liq.difTotalUsd)}</td></tr>
       ${fila("Resultado final para los socios", liq.finalUsd, "total")}
-    </tbody></table></section>`;
+    </tbody></table>
+    <h3 class="sub-tit">Impuestos: estimado, ya pagado a cuenta y falta pagar</h3>
+    ${tablaPagosACuenta(r, liq.mep)}</section>`;
 }
 
 /* ---------- liquidación en orden ---------- */

@@ -533,6 +533,15 @@ details > :last-child { margin-bottom: 14px; }
         </tbody>
       </table></div>
       <p>Viendo <strong>MICA</strong>, la misma tabla suma todas las obras y Estructura. En la fila de Julio aparece además lo que MICA le debe por gastos de Magna a reintegrar.</p>
+      <h3>Ficha de préstamos de cada socio y devoluciones</h3>
+      <p>Tocando el nombre de un socio en Socios, o desde <span class="ui">Préstamos por socio</span>, se abre su ficha: todos sus préstamos en todos los proyectos, con la fecha, de dónde vino cada uno (préstamo directo o gasto que pagó), la tasa, el interés, lo devuelto, el saldo y el estado (pendiente, devuelto en parte o devuelto). Cada socio puede ver la suya y bajarla como <strong>imagen o PDF</strong>.</p>
+      <ol class="pasos">
+        <li><div><strong>Mandale la ficha al socio</strong><p>Botón Imagen o PDF, y se la mandás por WhatsApp.</p></div></li>
+        <li><div><strong>Hacé la transferencia</strong><p>Desde la cuenta de Magna, por el monto en pesos que muestra la ficha al dólar MEP del día.</p></div></li>
+        <li><div><strong>Registrala en la app</strong><p>Julio toca <span class="ui">Registrar devolución</span>, pone la fecha, el dólar MEP y el número de transferencia, y marca qué préstamos devuelve (todos por su saldo, o un monto menor en alguno). La app muestra cuánto va a interés y cuánto a capital, y al confirmar guarda una sola operación con el detalle de los préstamos que cancela.</p></div></li>
+        <li><div><strong>Bajá el comprobante</strong><p>Queda en la ficha, en imagen o PDF. Si se cargó mal, se anula desde la ficha y se carga de nuevo.</p></div></li>
+      </ol>
+      <p>Si un solo pago cubre préstamos de varios proyectos, la app guarda un movimiento por proyecto (cada bolsillo baja su deuda), todos con el mismo número de operación y de transferencia. Los préstamos de Julio desde Magna vuelven como pase a Magna · Julio.</p>
       <div class="nota nota-tip"><svg><use href="#i-tip"/></svg><div><p><strong>Préstamo o aporte.</strong> Préstamo cuando la plata debe volver con interés y antes que el resultado. Aporte cuando es capital de riesgo sin interés. Si dudan, conviene acordarlo entre los cuatro antes de cargarlo.</p></div></div>
     </section>
 
@@ -546,6 +555,9 @@ details > :last-child { margin-bottom: 14px; }
         <li><strong>IVA por mes</strong> y <strong>retenciones y percepciones sufridas</strong>, para controlar con la contadora. Las percepciones de las facturas de compra bajan lo que queda por pagar de IVA, IIBB y Ganancias.</li>
         <li><strong>Planilla para la contadora:</strong> en <span class="ui">Exportar y datos</span>, elegí el mes (o un rango) y descargá un Excel con todo lo oficial de Magna en pesos: compras con factura con IVA por alícuota y percepciones, ventas (las facturas en dólares al tipo de cambio de cada factura), retenciones sufridas, sueldos y cargas, un resumen mensual con fórmulas y, en una hoja aparte, los gastos sin factura. La razón social y el CUIT se cargan en <span class="ui">Ajustes → Impuestos e IA</span>.</li>
         <li><strong>Pagos de impuestos:</strong> se cargan como gasto del bolsillo Magna · Reserva fiscal.</li>
+        <li><strong>Ganancias con tasa efectiva:</strong> la app no usa la alícuota legal sino la tasa que en la práctica termina pagando Magna (20% por defecto, en <span class="ui">Ajustes → Impuestos e IA</span>). Cada proyecto puede tener su propio porcentaje o un monto fijo en pesos que indique la contadora, desde <span class="ui">Impuestos</span> viendo ese proyecto.</li>
+        <li><strong>Estimado, pagado a cuenta y falta pagar:</strong> para cada impuesto se ve lo estimado, lo que ya se pagó a cuenta (retenciones de los cobros y percepciones de las compras) y lo que falta. Lo retenido no se resta del resultado, porque ya es parte del impuesto, pero sí baja lo que hay que reservar.</li>
+        <li><strong>Cierre del ejercicio:</strong> viendo Magna, en Impuestos, cargás la Ganancias que determinó la contadora; la app la reparte entre los proyectos según su resultado impositivo, recalcula la reserva de cada uno y te deja <span class="ui">Liberar</span> lo que sobra, que vuelve al bolsillo del proyecto.</li>
       </ul>
       <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><p>Las tasas (Ganancias, IIBB, impuesto al cheque) se configuran en <span class="ui">Ajustes → Impuestos e IA</span> y son estimaciones. Conviene validarlas con la contadora de Magna.</p></div></div>
     </section>
@@ -617,7 +629,7 @@ details > :last-child { margin-bottom: 14px; }
       <details><summary>¿Puedo usar la app sin conexión?</summary><p>Para entrar hace falta conexión. Si se corta la señal con la app abierta, lo que cargues queda guardado en el dispositivo y se sube solo cuando vuelve la conexión. Hasta entonces los demás socios no lo ven.</p></details>
     </section>
 
-    <footer class="pie">MICA — Minería Integral Catamarca · Guía de uso de MICA Gestión, versión 8 · Octubre 2026. Ante cualquier duda sobre cómo cargar algo, preguntale a Julio antes de inventar una forma nueva: una sola forma de cargar cada cosa es lo que mantiene las cuentas conciliadas.</footer>
+    <footer class="pie">MICA — Minería Integral Catamarca · Guía de uso de MICA Gestión, versión 9 · Octubre 2026. Ante cualquier duda sobre cómo cargar algo, preguntale a Julio antes de inventar una forma nueva: una sola forma de cargar cada cosa es lo que mantiene las cuentas conciliadas.</footer>
   </main>
 </div>
 

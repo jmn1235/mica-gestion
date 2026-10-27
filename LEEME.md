@@ -339,3 +339,12 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
 - **Excel con formato** en todas las exportaciones (ExcelJS desde cdnjs): encabezados con los colores de MICA, filtros, fila de títulos fija, montos y fechas con formato, totales con SUBTOTAL y hoja «Léeme».
 - Las reglas de Firestore no cambian respecto de la versión 7.
 
+## Novedades de la versión 9
+
+- **Ganancias con tasa efectiva:** 20% por defecto (Ajustes → Impuestos e IA), editable por proyecto en Impuestos: % propio o monto fijo en pesos (`proyecto.gananciasEfectiva`). La alícuota legal queda solo como referencia.
+- **Estimado, pagado a cuenta y falta pagar** por impuesto, en Impuestos del proyecto y en el Resultado final del cierre. Las retenciones y percepciones de Ganancias e IIBB bajan lo que falta pagar y la reserva.
+- **Cierre del ejercicio** (Impuestos viendo Magna): reparte la Ganancias determinada entre los proyectos y permite liberar la reserva sobrante con un pase de Magna · Reserva fiscal al proyecto.
+- **Ficha de préstamos por socio** (`#socio/<id>`, menú «Préstamos por socio»): todos sus préstamos con estado, devoluciones y saldo; se descarga en imagen o PDF (html2canvas y jsPDF desde cdnjs). Cada socio ve la suya.
+- **Devolución detallada:** una operación (`operacion`) con un movimiento por bolsillo, cada uno con `aplica: [{ p: id del préstamo, usd }]`; el cálculo de préstamos aplica la devolución a esos préstamos (las devoluciones viejas siguen yendo a los más viejos). Comprobante descargable y anulación desde la ficha.
+- Las reglas de Firestore no cambian.
+

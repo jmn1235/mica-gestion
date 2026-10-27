@@ -112,6 +112,7 @@ export function render(el) {
           PER.proponer({ coleccion: "movimientos", accion: "baja", docId: m.id });
           return toast("Pedido de baja enviado: Julio lo tiene que aprobar");
         }
+        if (m.operacion) return toast("Esta devolución se anula desde la ficha del socio, así se borran juntos todos sus movimientos.", "error");
         if (m.gastoVinculado) return toast("Este préstamo nació de un gasto pagado por un socio: se borra o se desmarca desde el gasto.", "error");
         const conPrestamo = !!GS.prestamoDe(m);
         GS.borrarMovimiento(m, app.usuario.socio);
@@ -148,6 +149,7 @@ function filaMov(m, ref) {
   if (m.tipo === "pase") tags.push(`<span class="tag tag-borde">Pase</span>`);
   if (m.cotizacionFuente === "aprox") tags.push(`<span class="tag tag-alerta" title="Se usó la cotización de otro día">Cotización a revisar</span>`);
   if (m.pagadoPor) tags.push(`<span class="tag tag-borde" title="Quedó como préstamo del socio">Pagó ${esc(M.socioNombre(m.pagadoPor))}</span>`);
+  if (m.operacion) tags.push(`<span class="tag tag-borde" title="Registrada desde la ficha del socio">Devolución detallada</span>`);
   if (m.gastoVinculado) tags.push(`<span class="tag tag-borde" title="Generado por un gasto pagado por el socio">Por gasto pagado</span>`);
   if (M.percepciones(m)) tags.push(`<span class="tag tag-borde" title="Percepciones de la factura">Perc. ${esc(fmtARS(M.percepciones(m)))}</span>`);
   if (m.retencionesARS) tags.push(`<span class="tag tag-borde" title="Retenciones sufridas">Ret. ${esc(fmtARS(m.retencionesARS))}</span>`);

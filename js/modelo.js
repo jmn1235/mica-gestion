@@ -34,6 +34,13 @@ export function nombreBolsillo(id) {
   return p ? "Proyecto · " + p.nombre : (id || "—");
 }
 export const esBolsilloProyecto = id => !!proyecto(id);
+/* Último dólar MEP cargado en los movimientos de un bolsillo (o de toda la cuenta). */
+export function ultimaCotizacion(bol) {
+  let f = "", c = 0;
+  S.movimientos.forEach(m => { if ((!bol || m.bolsillo === bol) && m.cotizacion > 0 && String(m.fecha) >= f) { f = String(m.fecha); c = m.cotizacion; } });
+  if (!c && bol) return ultimaCotizacion();
+  return c;
+}
 
 /* ---------- clases de movimiento ---------- */
 export const CLASES = {
@@ -219,8 +226,10 @@ export function prestamistaDe(k) {
 }
 
 /* Préstamos que recibió un bolsillo, por prestamista, con interés compuesto diario en dólares.
-   Cada préstamo tiene su propia tasa efectiva anual. Las devoluciones pagan primero el interés
-   y después el capital, empezando por el préstamo más viejo. */
+   Cada préstamo tiene su propia tasa efectiva anual. Una devolución que indica qué préstamos
+   cancela (campo "aplica": [{ p: id del préstamo, usd }]) se aplica a esos; el resto, y las
+   devoluciones sin detalle, pagan primero el interés y después el capital, empezando por el
+   préstamo más viejo. */
 export function prestamosDe(bolsilloId, hasta) {
   const corte = hasta || fechaCorte(proyecto(bolsilloId));
   const grupos = {};
@@ -235,7 +244,7 @@ export function prestamosDe(bolsilloId, hasta) {
   return Object.values(grupos).map(g => {
     const tramos = g.tramos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).map(m => ({
       mov: m, fecha: m.fecha, tasa: Number(m.tasa) || 0, td: tasaDiaria(m.tasa), capital: usd(m), capitalArs: Number(m.montoARS) || 0,
-      cap: usd(m), int: 0, devengado: 0, activo: false
+      cap: usd(m), int: 0, devengado: 0, activo: false, pagos: []
     }));
     const eventos = tramos.map(t => ({ fecha: t.fecha, tramo: t })).concat(g.devoluciones.map(m => ({ fecha: m.fecha, pago: usd(m), mov: m })))
       .sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.tramo ? -1 : 1));
@@ -253,14 +262,22 @@ export function prestamosDe(bolsilloId, hasta) {
       devengar(e.fecha);
       if (e.tramo) { e.tramo.activo = true; return; }
       let resto = e.pago;
-      tramos.forEach(t => {
-        if (!t.activo || resto <= 0) return;
-        const pi = Math.min(resto, t.int); t.int -= pi; resto -= pi;
-        const pc = Math.min(resto, t.cap); t.cap -= pc; resto -= pc;
-      });
-      aFavor += resto;
+      const pagar = (t, tope) => {
+        if (!t || !t.activo || resto <= 1e-9) return;
+        let x = Math.min(resto, tope);
+        const pi = Math.min(x, t.int); t.int -= pi; x -= pi;
+        const pc = Math.min(x, t.cap); t.cap -= pc;
+        if (pi + pc > 1e-9) { resto -= pi + pc; if (pi + pc > 0.005) t.pagos.push({ mov: e.mov, fecha: e.fecha, int: pi, cap: pc }); }
+      };
+      const conDetalle = Array.isArray(e.mov.aplica) && e.mov.aplica.length;
+      if (conDetalle) e.mov.aplica.forEach(a => pagar(tramos.find(t => t.mov.id === a.p), Number(a.usd) || 0));
+      // Diferencias de redondeo entre pesos y dólares de una devolución detallada: no se reparten.
+      if (conDetalle && resto < 0.01) resto = 0;
+      tramos.forEach(t => pagar(t, Infinity));
+      if (resto > 0.005) aFavor += resto;
     });
     devengar(corte);
+    tramos.forEach(t => { t.saldo = Math.max(0, t.cap + t.int); t.estado = t.saldo <= 0.01 ? "devuelto" : t.pagos.length ? "parcial" : "pendiente"; });
     const sum = f => tramos.reduce((a, t) => a + f(t), 0);
     const pr = prestamistaDe(g.quien);
     const devueltoUsd = g.devoluciones.reduce((a, m) => a + usd(m), 0);
@@ -376,7 +393,17 @@ export function honorariosDe(p) {
 }
 
 /* ---------- impuestos de Magna asignados a cada proyecto ---------- */
-export const IMPUESTOS_DEF = { iibb: 0, ganancias: 35, chequeCredito: 0.6, chequeDebito: 0.6, chequeComputable: 33 };
+/* ganancias: alícuota legal (referencia). gananciasEfectiva: lo que en la práctica paga Magna sobre el
+   resultado impositivo, según la contadora; es la que usa la app. Cada proyecto la puede cambiar. */
+export const IMPUESTOS_DEF = { iibb: 0, ganancias: 35, gananciasEfectiva: 20, chequeCredito: 0.6, chequeDebito: 0.6, chequeComputable: 33 };
+export const tasaGananciasGeneral = () => Number(parametrosImpuestos().gananciasEfectiva) || 0;
+/* Ganancias de un proyecto: % efectivo (el general o uno propio) o un monto fijo en pesos. */
+export function gananciasDe(p) {
+  const g = (p && p.gananciasEfectiva) || {};
+  if (g.modo === "monto" && Number(g.montoArs) >= 0 && g.montoArs !== "" && g.montoArs != null) return { modo: "monto", montoArs: Number(g.montoArs), mep: Number(g.mep) || 0, propia: true };
+  if (g.modo === "pct" && g.pct !== "" && g.pct != null && !isNaN(Number(g.pct))) return { modo: "pct", pct: Number(g.pct), propia: true };
+  return { modo: "pct", pct: tasaGananciasGeneral(), propia: false };
+}
 export function parametrosImpuestos() {
   return Object.assign({}, IMPUESTOS_DEF, (S.config.general || {}).impuestos || {});
 }
@@ -387,7 +414,7 @@ const esBanco = m => { const c = S.cuentas.find(x => x.id === (m.cuenta || "c_ma
    Las retenciones sufridas son pagos a cuenta: bajan lo que queda por pagar, no el costo. */
 export function impuestosDe(p, r) {
   const t = parametrosImpuestos();
-  const x = { param: t, iibbArs: 0, iibbUsd: 0, retIibbArs: 0, retIibbUsd: 0, percIibbArs: 0, percGanArs: 0, percGanUsd: 0, percIvaArs: 0, chequeArs: 0, chequeUsd: 0, retGanArs: 0, retGanUsd: 0, retIvaArs: 0, retOtrasArs: 0, deduciblesUsd: 0 };
+  const x = { param: t, iibbArs: 0, iibbUsd: 0, retIibbArs: 0, retIibbUsd: 0, percIibbArs: 0, percIibbUsd: 0, percGanArs: 0, percGanUsd: 0, percIvaArs: 0, chequeArs: 0, chequeUsd: 0, retGanArs: 0, retGanUsd: 0, retIvaArs: 0, retOtrasArs: 0, deduciblesUsd: 0 };
   S.movimientos.forEach(m => {
     if (m.bolsillo !== p.id) return;
     if (esVenta(m)) {
@@ -401,7 +428,7 @@ export function impuestosDe(p, r) {
     if (esCosto(m)) {
       const pi = Number(m.percIIBB) || 0, pg = Number(m.percGan) || 0;
       x.percIibbArs += pi; x.percGanArs += pg; x.percIvaArs += Number(m.percIVA) || 0;
-      if (m.cotizacion > 0) x.percGanUsd += pg / m.cotizacion;
+      if (m.cotizacion > 0) { x.percGanUsd += pg / m.cotizacion; x.percIibbUsd += pi / m.cotizacion; }
     }
     // Un gasto pagado por un socio y su préstamo no pasan por el banco: no generan impuesto al cheque.
     if ((m.tipo === "ingreso" || m.tipo === "egreso") && esBanco(m) && !m.pagadoPor && !m.gastoVinculado) {
@@ -415,11 +442,25 @@ export function impuestosDe(p, r) {
   x.chequeComputableArs = x.chequeArs * t.chequeComputable / 100;
   // Resultado impositivo: no se deducen los gastos sin factura ni los honorarios e intereses entre socios.
   x.baseGananciasUsd = r.ventasUsd - x.deduciblesUsd - x.iibbUsd - (x.chequeUsd - x.chequeComputableUsd);
-  x.gananciasUsd = Math.max(0, x.baseGananciasUsd * t.ganancias / 100);
+  // Ganancias: tasa efectiva del proyecto (o la general), o un monto fijo en pesos que pasó la contadora.
+  const g = gananciasDe(p);
+  x.ganancias = g;
+  if (g.modo === "monto") {
+    const mep = g.mep || ultimaCotizacion(p.id);
+    x.gananciasUsd = mep > 0 ? g.montoArs / mep : 0;
+    x.gananciasArs = g.montoArs;
+  } else x.gananciasUsd = Math.max(0, x.baseGananciasUsd * g.pct / 100);
+  // Proporción efectiva sobre el resultado impositivo (para neto de estructura y gastos sin factura).
+  x.tasaGanEf = g.modo === "pct" ? g.pct / 100 : (x.baseGananciasUsd > 0 ? Math.min(1, x.gananciasUsd / x.baseGananciasUsd) : 0);
   x.gananciasCostoUsd = Math.max(0, x.gananciasUsd - x.chequeComputableUsd);
-  x.gananciasAPagarUsd = x.gananciasUsd - x.retGanUsd - x.percGanUsd - x.chequeComputableUsd;
+  // Lo ya pagado a cuenta: retenciones de los cobros, percepciones de las compras y la parte computable del cheque.
+  x.ganRetenidoUsd = x.retGanUsd + x.percGanUsd + x.chequeComputableUsd;
+  x.gananciasAPagarUsd = x.gananciasUsd - x.ganRetenidoUsd;
+  if (g.modo === "monto") x.gananciasAPagarArs = g.montoArs - x.retGanArs - x.percGanArs - x.chequeComputableArs;
+  x.iibbRetenidoUsd = x.retIibbUsd + x.percIibbUsd;
   x.iibbAPagarArs = x.iibbArs - x.retIibbArs - x.percIibbArs;
-  x.extraInformalUsd = r.sinFacturaUsd * t.ganancias / 100;
+  x.iibbAPagarUsd = x.iibbUsd - x.iibbRetenidoUsd;
+  x.extraInformalUsd = r.sinFacturaUsd * x.tasaGanEf;
   return x;
 }
 
@@ -506,7 +547,7 @@ export function cuentaSociosProyecto(p, r = resumenProyecto(p), asignado = 0) {
     const prestamos = r.prestamos.filter(x => x.socio === s.id).reduce((a, x) => a + x.saldoUsd, 0);
     const honorarios = (r.honorarios.porSocio[s.id] || 0) - (pg.honorarios || 0);
     // El neto de impuestos es lo que se puede repartir. La estructura asignada baja Ganancias, por eso se toma neta.
-    const tasaGan = (r.impuestos ? r.impuestos.param.ganancias : 0) / 100;
+    const tasaGan = r.impuestos ? r.impuestos.tasaGanEf : 0;
     const neto = (r.resultadoNetoUsd ?? r.resultadoUsd) + (r.difCambioCierreUsd || 0);
     const resultado = (neto - asignado * (1 - tasaGan)) * pct;
     const distribuido = pg.distribuido || 0;
@@ -556,7 +597,7 @@ export function resumenMica() {
     acc.aportes += ((est.aportes[s.id] || { usd: 0 }).usd) - (pe.aportesDevueltos || 0);
     acc.distribuido += pe.distribuido || 0;
     acc.prestamos += est.prestamos.filter(x => x.socio === s.id).reduce((a, x) => a + x.saldoUsd, 0);
-    acc.resultado -= sinAsignar * (1 - parametrosImpuestos().ganancias / 100) / SOCIOS.length;
+    acc.resultado -= sinAsignar * (1 - tasaGananciasGeneral() / 100) / SOCIOS.length;
     acc.aFavor = acc.aportes + acc.prestamos + acc.honorarios + acc.resultado + acc.reintegro - acc.distribuido;
     // compatibilidad con la etapa 1
     acc.resultadoUsd = acc.resultado; acc.aportesUsd = acc.aportes;
@@ -566,7 +607,7 @@ export function resumenMica() {
   return {
     proyectos, estructura: est, socios, reintegro: rein, aRepartir, sinAsignar,
     ventasUsd: tot.ventas, costosUsd: tot.costos, resultadoUsd: tot.resultado - aRepartir,
-    resultadoNetoUsd: tot.neto - aRepartir * (1 - parametrosImpuestos().ganancias / 100)
+    resultadoNetoUsd: tot.neto - aRepartir * (1 - tasaGananciasGeneral() / 100)
   };
 }
 

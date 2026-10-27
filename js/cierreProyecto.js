@@ -137,7 +137,7 @@ function armarPasos(p, f, fecha, mep, asignado, destino, ajusteReserva) {
   porSocio("honorarios", "honorario", 4, "Pagar los honorarios reconocidos", "Lo acordado con cada socio y todavía no pagado.", "Honorarios (cierre)");
 
   // 5. Estructura de MICA y gastos de Magna
-  const t = f.r.impuestos.param.ganancias / 100;
+  const t = f.r.impuestos.tasaGanEf;
   const corresponde5 = asignado * (1 - t);
   const falta5 = corresponde5 - f.estructura;
   const m5 = [];
@@ -192,7 +192,7 @@ export function liquidacion(p, fecha, mep, destino = "repartir") {
     res = armarPasos(p, f0, fecha, mep, asignado, destino, ajuste);
   }
   const r = f0.r;
-  const t = r.impuestos.param.ganancias / 100;
+  const t = r.impuestos.tasaGanEf;
   const cerrado = p.estado === "cerrado" && p.cierre;
   const difCierre = cerrado ? n(p.cierre.difCambioUsd) : 0;
   const asignadoNeto = asignado * (1 - t);

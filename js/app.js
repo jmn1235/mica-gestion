@@ -17,6 +17,7 @@ import * as presupuesto from "./vistas/presupuesto.js";
 import * as seguimiento from "./vistas/seguimiento.js";
 import * as certificados from "./vistas/certificados.js";
 import * as socios from "./vistas/socios.js";
+import * as socio from "./vistas/socio.js";
 import * as impuestos from "./vistas/impuestos.js";
 import * as cierre from "./vistas/cierre.js";
 import * as preguntar from "./vistas/preguntar.js";
@@ -27,7 +28,7 @@ import * as aprobaciones from "./vistas/aprobaciones.js";
 import * as PER from "./permisos.js";
 import { comoSistema } from "./db.js";
 
-const VISTAS = { tablero, cargar, movimientos, presupuesto, certificados, seguimiento, cierre, liquidacion, socios, impuestos, base, preguntar, ajustes, mas, aprobaciones };
+const VISTAS = { tablero, cargar, movimientos, presupuesto, certificados, seguimiento, cierre, liquidacion, socios, socio, impuestos, base, preguntar, ajustes, mas, aprobaciones };
 const raiz = $("#app");
 let shellListo = false;
 let actual = { ruta: "", params: [], vista: null };
@@ -154,6 +155,7 @@ function armarShell() {
         <div class="sep"></div>
         <div class="rot">MICA y Magna</div>
         <a href="#socios" data-ruta="socios">${ICONOS.socios}<span>Socios</span></a>
+        <a href="#socio" data-ruta="socio">${ICONOS.base}<span>Préstamos por socio</span></a>
         <a href="#impuestos" data-ruta="impuestos">${ICONOS.impuestos}<span>Impuestos</span></a>
         <a href="#base" data-ruta="base">${ICONOS.base}<span>Base de costos</span></a>
         <a href="#preguntar" data-ruta="preguntar">${ICONOS.preguntar}<span>Preguntar</span></a>
@@ -200,7 +202,7 @@ function armarShell() {
 
 function marcarNav(ruta) {
   const r = ruta === "mas" ? "mas" : ruta;
-  const enMas = ["aprobaciones", "ajustes", "presupuesto", "certificados", "seguimiento", "cierre", "liquidacion", "socios", "impuestos", "base", "preguntar"].includes(r);
+  const enMas = ["aprobaciones", "ajustes", "presupuesto", "certificados", "seguimiento", "cierre", "liquidacion", "socios", "socio", "impuestos", "base", "preguntar"].includes(r);
   $$("[data-ruta]").forEach(a => a.classList.toggle("activo", a.dataset.ruta === r || !!(enMas && a.dataset.ruta === "mas" && a.closest(".nav-inferior"))));
 }
 
