@@ -583,3 +583,25 @@ tr.cambia td { background: var(--ambar-fondo); }
   .hoja-tabla th:nth-child(4), .hoja-tabla td:nth-child(4), .hoja-tabla th:nth-child(5), .hoja-tabla td:nth-child(5), .hoja-tabla th:nth-child(6), .hoja-tabla td:nth-child(6) { display: none; }
   .hoja-captura .hoja-tabla th, .hoja-captura .hoja-tabla td { display: table-cell !important; }
 }
+
+/* ---------- informe de cierre (v10) ---------- */
+.desplegable { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 10px; }
+.desplegable summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--tinta-2); }
+.desplegable[open] summary { margin-bottom: 8px; }
+.inf-ia { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px dashed var(--linea-2); border-radius: var(--radio); padding: 12px 14px; }
+.inf-ia > div:first-child { flex: 1 1 260px; min-width: 0; }
+.inf-ia-acc { display: flex; gap: 8px; }
+#lq-texto .informe { margin-top: 14px; }
+.informe-cierre { max-height: 70vh; overflow-y: auto; padding-right: 4px; }
+.inf-sec + .inf-sec { margin-top: 22px; padding-top: 16px; border-top: 2px solid var(--linea); }
+.inf-h { font-family: var(--f-titulo); font-size: 17px; margin: 0 0 4px; padding-left: 9px; border-left: 3px solid var(--rojo, #E1262D); }
+.inf-tit { font-family: var(--f-titulo); font-size: 13.5px; margin: 16px 0 6px; }
+.inf-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0 14px; }
+.inf-kpis .kpi { box-shadow: none; padding: 12px 14px; }
+.inf-kpis .kpi-val { font-size: 20px; }
+.tabla-informe tr.grupo td { font-weight: 700; }
+.tabla-informe tr.det td:first-child { padding-left: 22px; color: var(--tinta-2); }
+@media (max-width: 760px) {
+  .inf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .informe-cierre { max-height: none; }
+}

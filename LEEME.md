@@ -47,7 +47,7 @@ Esta carpeta es la app completa, con las seis etapas del plan. Se publica una so
   - **Liquidación en el orden acordado**: 1) reservar los impuestos, 2) devolver los préstamos con su interés, 3) devolver los aportes, 4) pagar los honorarios, 5) cubrir la parte de estructura y de Magna, 6) repartir el resto según la participación, o dejarlo en MICA · Estructura o reinvertirlo en otro proyecto como aporte de cada socio.
   - Cada paso propone los movimientos con sus montos en pesos al dólar de la liquidación. Se revisan, se corrigen si el banco debitó otro importe y se registran juntos.
   - Al cerrar se fijan la fecha (intereses y honorarios dejan de correr), la parte de estructura y la diferencia de cambio. Se puede reabrir.
-  - Informe de cierre con IA, con lecciones para la próxima cotización, e impresión o PDF.
+  - Informe de cierre para los socios, armado con los números de la app, en pantalla y en PDF A4, con un análisis opcional de la IA.
 - **Base de costos** (grupo MICA y Magna):
   - Una ficha por ítem de cada obra cerrada: costo real por unidad ejecutada en materiales, mano de obra, equipos, subcontratos e indirectos, gastos generales de la obra, costo cotizado, desvío y margen.
   - Búsqueda y filtros por rubro, unidad, tipo de obra y obra, con promedio, mínimo y máximo por unidad.
@@ -346,5 +346,17 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
 - **Cierre del ejercicio** (Impuestos viendo Magna): reparte la Ganancias determinada entre los proyectos y permite liberar la reserva sobrante con un pase de Magna · Reserva fiscal al proyecto.
 - **Ficha de préstamos por socio** (`#socio/<id>`, menú «Préstamos por socio»): todos sus préstamos con estado, devoluciones y saldo; se descarga en imagen o PDF (html2canvas y jsPDF desde cdnjs). Cada socio ve la suya.
 - **Devolución detallada:** una operación (`operacion`) con un movimiento por bolsillo, cada uno con `aplica: [{ p: id del préstamo, usd }]`; el cálculo de préstamos aplica la devolución a esos préstamos (las devoluciones viejas siguen yendo a los más viejos). Comprobante descargable y anulación desde la ficha.
+- Las reglas de Firestore no cambian.
+
+## Novedades de la versión 10
+
+- **Informe de cierre de proyecto** (`js/informeCierre.js`), en Cierre de proyecto → **Ver el informe** y **Descargar PDF**. Es solo para los socios. Las tablas las arma la app con los mismos cálculos de la pantalla (no hay números de la IA): resumen y márgenes, ingresos por factura o certificado, egresos por categoría y subcategoría, proveedores y comprobante, resultado en cascada, impuestos y reserva fiscal, préstamos, lo recibido por cada socio, liquidación paso a paso, reparto final y cotizado contra real por rubro. Sirve como simulación antes de cerrar y como informe después de cerrar.
+- **PDF A4** con jsPDF 2.5.1 y jspdf-autotable 3.8.2 (cdnjs): portada con la marca, encabezado y pie con número de página en todas las hojas, y tablas que no se cortan entre páginas (si una tabla entra en una hoja, empieza en la siguiente; el título de cada sección va con su primera tabla).
+- **Análisis de la IA opcional:** botón aparte («Agregar análisis»). Recibe las tablas del informe en texto y escribe solo el comentario (máximo unas 400 palabras, tope de 3000 tokens), que se suma al final del informe y del PDF.
+- **Margen cotizado:** si el presupuesto no tiene costo cotizado, ya no muestra «100% cotizado» (`margenCotizadoPct` queda vacío) y la pantalla lo dice.
+- **De dónde sale Ganancias:** tabla renglón por renglón (`baseGanancias(r)` en `js/impuestos.js`) en Impuestos del proyecto y en Cierre de proyecto («Cómo se calcula Ganancias»), con lo que no se deduce.
+- **Paso 5 del cierre:** muestra la parte asignada, el ahorro de Ganancias y lo que falta pasar a Estructura.
+- **Control del impuesto al cheque:** el Cierre de proyecto avisa si un gasto de la obra parece impuesto al cheque (la app ya lo calcula aparte; se carga como gasto de Magna · Reserva fiscal).
+- El botón de arriba de Cierre de proyecto ahora se llama «Imprimir la pantalla», para no confundirlo con el PDF del informe.
 - Las reglas de Firestore no cambian.
 

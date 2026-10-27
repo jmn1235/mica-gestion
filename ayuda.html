@@ -554,7 +554,8 @@ details > :last-child { margin-bottom: 14px; }
         <li><strong>Reserva fiscal:</strong> muestra lo que el proyecto debería haber pasado a Magna · Reserva fiscal y lo que falta. El botón <span class="ui">Reservar</span> abre el pase con el monto sugerido.</li>
         <li><strong>IVA por mes</strong> y <strong>retenciones y percepciones sufridas</strong>, para controlar con la contadora. Las percepciones de las facturas de compra bajan lo que queda por pagar de IVA, IIBB y Ganancias.</li>
         <li><strong>Planilla para la contadora:</strong> en <span class="ui">Exportar y datos</span>, elegí el mes (o un rango) y descargá un Excel con todo lo oficial de Magna en pesos: compras con factura con IVA por alícuota y percepciones, ventas (las facturas en dólares al tipo de cambio de cada factura), retenciones sufridas, sueldos y cargas, un resumen mensual con fórmulas y, en una hoja aparte, los gastos sin factura. La razón social y el CUIT se cargan en <span class="ui">Ajustes → Impuestos e IA</span>.</li>
-        <li><strong>Pagos de impuestos:</strong> se cargan como gasto del bolsillo Magna · Reserva fiscal.</li>
+        <li><strong>Pagos de impuestos:</strong> se cargan como gasto del bolsillo Magna · Reserva fiscal. Eso incluye el <strong>impuesto al cheque</strong> que debita el banco: la app ya lo calcula para cada proyecto, así que si se carga como gasto de la obra se cuenta dos veces. El Cierre de proyecto avisa si encuentra un gasto de la obra que parece impuesto al cheque.</li>
+        <li><strong>De dónde sale Ganancias:</strong> en <span class="ui">Tres resultados</span> (y en Cierre de proyecto, en <span class="ui">Cómo se calcula Ganancias</span>) se ve renglón por renglón: lo cobrado, menos los gastos que se deducen, IIBB y la parte del cheque que no se computa, da el resultado impositivo; sobre eso se aplica la tasa. Abajo dice cuánto suman los gastos sin factura, los intereses y los honorarios entre socios, que no se deducen.</li>
         <li><strong>Ganancias con tasa efectiva:</strong> la app no usa la alícuota legal sino la tasa que en la práctica termina pagando Magna (20% por defecto, en <span class="ui">Ajustes → Impuestos e IA</span>). Cada proyecto puede tener su propio porcentaje o un monto fijo en pesos que indique la contadora, desde <span class="ui">Impuestos</span> viendo ese proyecto.</li>
         <li><strong>Estimado, pagado a cuenta y falta pagar:</strong> para cada impuesto se ve lo estimado, lo que ya se pagó a cuenta (retenciones de los cobros y percepciones de las compras) y lo que falta. Lo retenido no se resta del resultado, porque ya es parte del impuesto, pero sí baja lo que hay que reservar.</li>
         <li><strong>Cierre del ejercicio:</strong> viendo Magna, en Impuestos, cargás la Ganancias que determinó la contadora; la app la reparte entre los proyectos según su resultado impositivo, recalcula la reserva de cada uno y te deja <span class="ui">Liberar</span> lo que sobra, que vuelve al bolsillo del proyecto.</li>
@@ -571,10 +572,22 @@ details > :last-child { margin-bottom: 14px; }
         <li><div><strong>Devolver los préstamos con su interés</strong><p>A cada prestamista, lo prestado más el interés hasta la fecha de liquidación.</p></div></li>
         <li><div><strong>Devolver los aportes</strong><p>En dólares del día de cada aporte.</p></div></li>
         <li><div><strong>Pagar los honorarios</strong><p>Lo acordado que no se haya pagado a cuenta.</p></div></li>
-        <li><div><strong>Cubrir la parte de estructura y de Magna</strong><p>Lo que le toca al proyecto según lo cobrado. Va a MICA · Estructura, que después le reintegra a Julio los gastos de Magna.</p></div></li>
+        <li><div><strong>Cubrir la parte de estructura y de Magna</strong><p>Lo que le toca al proyecto según lo cobrado, menos el ahorro de Ganancias que generan esos gastos (el paso muestra la cuenta). Va a MICA · Estructura, que después le reintegra a Julio los gastos de Magna.</p></div></li>
         <li><div><strong>Repartir o reinvertir el resultado</strong><p>Lo que queda, según la participación. Se puede dejar en Estructura como capital reinvertido de cada socio.</p></div></li>
       </ol>
       <p>Elegí la fecha y el dólar de la liquidación, revisá cada paso y tocá registrar: la app genera todos los movimientos. Después tocá <span class="ui">Cerrar el proyecto</span>. Con el proyecto cerrado, los intereses y honorarios dejan de correr y su parte de estructura queda fija. Si hace falta corregir algo, se puede reabrir.</p>
+      <h3>Informe de cierre</h3>
+      <p>Al final de la pantalla, <span class="ui">Ver el informe</span> lo muestra y <span class="ui">Descargar PDF</span> lo baja en hoja A4 con la marca MICA. Es <strong>solo para los socios</strong> y se puede sacar antes de cerrar, como simulación a la fecha y al dólar elegidos, o después de cerrar. Todas las tablas salen de los números de la app, sin IA:</p>
+      <ol>
+        <li><strong>Resumen:</strong> resultado final, márgenes (cotizado, proyectado y real) y datos del proyecto.</li>
+        <li><strong>Ingresos:</strong> cada factura o certificado con IVA y estado de cobro, y lo que falta cobrar.</li>
+        <li><strong>Egresos:</strong> por categoría y subcategoría, principales proveedores, por comprobante y la parte de estructura.</li>
+        <li><strong>Resultado en cascada</strong>, con el porcentaje de cada renglón sobre lo cobrado.</li>
+        <li><strong>Impuestos y reservas:</strong> estimado, pagado a cuenta y falta pagar, de dónde sale Ganancias y la reserva fiscal del proyecto.</li>
+        <li><strong>Préstamos y socios:</strong> préstamos, lo que ya recibió cada socio (devoluciones, aportes, honorarios y resultado), la liquidación paso a paso y el reparto final.</li>
+        <li><strong>Cotizado contra real por rubro.</strong> Si el presupuesto no tiene costo cotizado, se compara contra la venta.</li>
+      </ol>
+      <p>Con <span class="ui">Agregar análisis</span> la IA suma un comentario al final, con lo que explica el resultado y lecciones para la próxima cotización. Es opcional, usa solo las tablas del informe y queda mientras la pantalla esté abierta.</p>
     </section>
 
     <!-- 10 -->
