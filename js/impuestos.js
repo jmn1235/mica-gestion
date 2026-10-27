@@ -82,6 +82,33 @@ export function reservaProyecto(p, r = M.resumenProyecto(p)) {
   return { conceptos, aReservar, reservado, pendiente: aReservar - reservado, iva, mep };
 }
 
+/* De dónde sale Ganancias de un proyecto, renglón por renglón (en dólares MEP).
+   tipo: "" renglón común, "sub" subtotal, "total" resultado, "nota" lo que no se deduce. */
+export function baseGanancias(r) {
+  const x = r.impuestos, g = x.ganancias || {};
+  const chequeNoComp = x.chequeUsd - x.chequeComputableUsd;
+  const filas = [
+    { t: "Cobrado, neto de IVA", usd: r.ventasUsd },
+    { t: "Gastos deducibles (Factura A, B o C, sueldos y tasas)", usd: -x.deduciblesUsd },
+    { t: "Ingresos Brutos", usd: -x.iibbUsd },
+    { t: "Impuesto al cheque que no se computa (" + String(100 - x.param.chequeComputable).replace(".", ",") + "%)", usd: -chequeNoComp },
+    { t: "Resultado impositivo", usd: x.baseGananciasUsd, tipo: "sub" },
+    g.modo === "monto"
+      ? { t: "Ganancias: monto fijo que pasó la contadora", usd: -x.gananciasUsd }
+      : { t: "Ganancias: " + String(g.pct).replace(".", ",") + "% del resultado impositivo", usd: -x.gananciasUsd },
+    { t: "Menos la parte del cheque que se toma a cuenta", usd: x.chequeComputableUsd },
+    { t: "Ganancias a cargo del proyecto", usd: -x.gananciasCostoUsd, tipo: "total" }
+  ];
+  const noDeducen = [
+    { t: "Gastos sin factura", usd: r.sinFacturaUsd },
+    { t: "Intereses de préstamos de socios", usd: r.interesesUsd },
+    { t: "Honorarios de socios", usd: r.honorariosUsd }
+  ].filter(f => f.usd > 0.5);
+  // Lo que suman a Ganancias los gastos que no se deducen (con la tasa efectiva).
+  const extraUsd = noDeducen.reduce((a, f) => a + f.usd, 0) * (x.tasaGanEf || 0);
+  return { filas, noDeducen, extraUsd };
+}
+
 /* Reserva fiscal de Magna: lo reservado, lo pagado por impuesto y el saldo. */
 export function reservaMagna() {
   const pagos = {};

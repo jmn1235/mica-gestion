@@ -6,20 +6,20 @@
 import { S } from "../db.js";
 import { app } from "../contexto.js";
 import * as M from "../modelo.js";
-import { tablaPagosACuenta, textoGanancias } from "./impuestos.js";
+import { tablaPagosACuenta, textoGanancias, tablaBaseGanancias } from "./impuestos.js";
 import * as P from "../presupuesto.js";
 import * as C from "../certificados.js";
 import * as I from "../impuestos.js";
 import * as IA from "../ia.js";
 import * as L from "../cierreProyecto.js";
 import { cotizacionMEP } from "../mep.js";
-import { contextoProyecto } from "../contextoIA.js";
+import * as INF from "../informeCierre.js";
 import { $, $$, esc, num, fmtUSD, fmtARS, fmtPct, fmtCant, fmtMiles, fmtFecha, fmtMoneda, parseMonto, hoyISO, toast, confirmar2, modal, cerrarModal, cabecera, ICONOS } from "../ui.js";
 import { pedirProyecto } from "./comun.js";
 import { formatear } from "./cierre.js";
 
 const est = {};       // fecha, dólar y destino elegidos, por proyecto
-const informes = {};  // informes generados en esta sesión
+const informes = {};  // comentario de la IA generado en esta sesión, por proyecto
 const u = v => num(v, fmtUSD);
 const kpi = (rot, val, sub = "") => `<div class="kpi"><div class="kpi-rot">${rot}</div><div class="kpi-val">${val}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ""}</div>`;
 
@@ -41,7 +41,7 @@ export function render(el) {
   const sg = P.seguimiento(cerrado ? p : L.simulado(p, s.fecha));
 
   let h = cabecera(p.codigo || "Proyecto", "Cierre de proyecto", `${esc(p.nombre)}${p.cliente ? " · " + esc(p.cliente) : ""} · <span class="tag${cerrado ? "" : " tag-ok"}">${cerrado ? "Cerrado" : esc((M.ESTADOS_PROYECTO.find(e => e.id === p.estado) || {}).nombre || "")}</span>`,
-    `<button class="btn btn-sec" id="lq-imprimir">${ICONOS.imprimir}Imprimir o guardar PDF</button>`);
+    `<button class="btn btn-sec" id="lq-imprimir">${ICONOS.imprimir}Imprimir la pantalla</button>`);
 
   if (cerrado) {
     h += `<div class="aviso aviso-info">${ICONOS.ok}<div><b>Proyecto cerrado el ${esc(fmtFecha(p.cierre.fecha, true))}</b>${p.cierre.cerradoPor ? ` por ${esc(M.socioNombre(p.cierre.cerradoPor))}` : ""}, al dólar de ${esc(fmtARS(p.cierre.mep, 2))}. Los intereses y los honorarios se calcularon hasta esa fecha y la parte de estructura quedó fija. ${p.cierre.fichas || 0} ítem${p.cierre.fichas === 1 ? "" : "s"} pasaron a la base de costos.
@@ -58,12 +58,9 @@ export function render(el) {
   h += panelLiquidacion(p, liq, cerrado);
   h += panelFichas(p, s.fecha, cerrado);
   if (!cerrado) h += panelCerrar(p, liq);
-  h += `<section class="panel no-imprimir"><div class="panel-cab"><div><h2>Informe de cierre</h2><p class="panel-sub">La IA lo redacta con el resultado, los desvíos por ítem y la liquidación, con lecciones para la próxima cotización. Revisalo antes de mandarlo.</p></div>
-    <div class="cab-acciones">${informes[p.id] ? `<button class="btn btn-sec btn-chico" id="lq-copiar">Copiar</button>` : ""}<button class="btn btn-pri btn-chico" id="lq-informe">${informes[p.id] ? "Volver a generar" : "Generar informe"}</button></div></div>
-    <div id="lq-texto">${informes[p.id] ? `<div class="informe">${formatear(informes[p.id])}</div>` : IA.hayClave() ? `<div class="vacio">Tocá «Generar informe».</div>` : `<div class="aviso aviso-info" style="margin:0">${ICONOS.alerta}<div>Para generar el informe hace falta la clave de IA en <a href="#ajustes/impuestos">Ajustes → Impuestos e IA</a>.</div></div>`}</div></section>`;
-  if (informes[p.id]) h += `<section class="panel solo-imprimir"><h2>Informe de cierre</h2><div class="informe">${formatear(informes[p.id])}</div></section>`;
+  h += panelInforme(p);
   el.innerHTML = h;
-  cablear(el, p, s, liq, cerrado);
+  cablear(el, p, s, liq, cerrado, sg);
 }
 
 /* ---------- fecha, dólar y destino ---------- */
@@ -112,6 +109,9 @@ function controles(p, liq) {
   if (cob.fondo.retenido > 0) out.push({ ok: cob.fondo.saldo <= 1, titulo: "Fondo de reparo devuelto", detalle: cob.fondo.saldo > 1 ? `Quedan ${fmtMoneda(cob.fondo.saldo, mon)} retenidos: facturá la devolución.` : "", accion: cob.fondo.saldo > 1 ? ["Facturar", "#certificados/nuevo/fondo"] : null });
   const incompletos = S.movimientos.filter(m => M.esCosto(m) && m.bolsillo === p.id && (!m.imputacion || !m.tipoCosto || m.cotizacionFuente === "aprox"));
   out.push({ ok: !incompletos.length, titulo: "Gastos completos", detalle: incompletos.length ? `${incompletos.length} gasto${incompletos.length === 1 ? "" : "s"} sin imputar, sin tipo de costo o con la cotización a revisar. La base de costos depende de esto.` : "", accion: incompletos.length ? ["Revisar", "#movimientos"] : null });
+  // El impuesto al cheque ya lo calcula la app: si además se cargó como gasto de la obra, se cuenta dos veces.
+  const cheque = S.movimientos.filter(m => M.esCosto(m) && m.bolsillo === p.id && /cheque|25\.?413|d[eé]bitos? y cr[eé]ditos?/i.test([m.concepto, m.proveedor, m.subcategoria, m.notas].join(" ")));
+  if (cheque.length) out.push({ ok: false, titulo: "Impuesto al cheque cargado como gasto de la obra", detalle: `${cheque.length} gasto${cheque.length === 1 ? " parece" : "s parecen"} impuesto al cheque. La app ya lo calcula aparte: así se cuenta dos veces. Cargalo como gasto de Magna · Reserva fiscal.`, accion: ["Revisar", "#movimientos"] });
   if (liq.r.prestamos.length) {
     const sinTasa = liq.r.prestamos.some(x => x.sinTasa);
     out.push({ ok: !sinTasa, titulo: "Préstamos con tasa", detalle: sinTasa ? "Hay préstamos sin tasa: no generan interés." : "", accion: sinTasa ? ["Revisar", "#socios"] : null });
@@ -143,7 +143,7 @@ function panelResultado(p, liq, sg) {
   const r = liq.r, x = r.impuestos;
   const margen = r.ventasUsd > 0 ? liq.finalUsd / r.ventasUsd : null;
   const fila = (t, v, cls = "") => `<tr${cls ? ` class="${cls}"` : ""}><td>${t}</td><td class="n">${u(v)}</td></tr>`;
-  return `<section class="panel"><div class="panel-cab"><div><h2>Resultado final</h2><p class="panel-sub">En dólares MEP, netos de IVA.${margen != null ? ` Margen final ${esc(fmtPct(margen))}${sg.margenCotizadoPct != null ? ` contra ${esc(fmtPct(sg.margenCotizadoPct))} cotizado` : ""}.` : ""}</p></div></div>
+  return `<section class="panel"><div class="panel-cab"><div><h2>Resultado final</h2><p class="panel-sub">En dólares MEP, netos de IVA.${margen != null ? ` Margen final ${esc(fmtPct(margen))} sobre lo cobrado.${sg.margenCotizadoPct != null ? ` El cotizado era ${esc(fmtPct(sg.margenCotizadoPct))}, antes de impuestos y estructura.` : " El presupuesto no tiene costo cotizado para comparar."}` : ""}</p></div></div>
     <table class="tabla tabla-compacta"><tbody>
       ${fila("Cobrado, neto de IVA", r.ventasUsd)}
       ${fila("Costos", -r.costosUsd)}
@@ -159,6 +159,7 @@ function panelResultado(p, liq, sg) {
       <tr><td>Diferencia de cambio y redondeos<small class="mute" style="display:block">La caja está en pesos y las cuentas en dólares de cada día: es lo que se ganó o perdió por tener pesos.</small></td><td class="n">${u(liq.difTotalUsd)}</td></tr>
       ${fila("Resultado final para los socios", liq.finalUsd, "total")}
     </tbody></table>
+    <details class="desplegable"><summary>Cómo se calcula Ganancias</summary>${tablaBaseGanancias(r)}</details>
     <h3 class="sub-tit">Impuestos: estimado, ya pagado a cuenta y falta pagar</h3>
     ${tablaPagosACuenta(r, liq.mep)}</section>`;
 }
@@ -181,6 +182,11 @@ function panelLiquidacion(p, liq, cerrado) {
       <div><div class="paso-tit">${esc(x.titulo)} <span class="tag ${cls === "ok" ? "tag-ok" : cls === "falta" ? "tag-alerta" : ""}">${nada ? "No corresponde" : tag}</span></div><div class="paso-sub">${esc(x.sub)}</div></div>
       <div class="paso-monto">${Math.abs(arsF) > 0.5 ? `<b>${esc(fmtARS(Math.abs(arsF)))}</b><span>${esc(fmtUSD(Math.abs(x.faltaUsd)))}${cls === "sobra" ? " de más" : ""}</span>` : `<b class="mute">—</b>`}</div>
       ${det.length > 1 || (det.length === 1 && x.k !== "impuestos" && x.k !== "estructura") ? `<div class="paso-det"><table class="tabla tabla-compacta"><tbody>${det.map(f => `<tr><td>${esc(f.quien)}${f.interes > 0.5 ? `<small class="mute" style="display:block">incluye ${esc(fmtUSD(f.interes))} de interés</small>` : ""}</td><td class="n">${f.usd != null ? esc(fmtUSD(f.usd)) : ""}</td><td class="n">${esc(fmtARS(f.ars))}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${x.k === "estructura" && x.asignadoBrutoUsd > 0.5 ? `<div class="paso-det"><table class="tabla tabla-compacta"><tbody>
+        <tr><td>Parte asignada al proyecto, según lo cobrado por cada proyecto</td><td class="n">${esc(fmtUSD(x.asignadoBrutoUsd))}</td></tr>
+        <tr><td>Menos el ahorro de Ganancias (${esc(fmtPct(liq.r.impuestos.tasaGanEf, 0))}): esos gastos bajan el impuesto de Magna</td><td class="n">${num(-(x.asignadoBrutoUsd - x.correspondeUsd), fmtUSD)}</td></tr>
+        ${x.hechoUsd > 0.5 ? `<tr><td>Ya pasado a Estructura</td><td class="n">${num(-x.hechoUsd, fmtUSD)}</td></tr>` : ""}
+        <tr class="total"><td>${x.faltaUsd >= 0 ? "Falta pasar" : "Pasado de más"}</td><td class="n">${esc(fmtUSD(Math.abs(x.faltaUsd)))}</td></tr></tbody></table></div>` : ""}
       ${x.manual.length ? `<div class="paso-det"><div class="aviso" style="margin:0">${ICONOS.alerta}<div>Hay préstamos sin prestamista identificado (${x.manual.map(m => esc(fmtUSD(m.usd))).join(", ")}). Registrá la devolución a mano desde Cargar.</div></div></div>` : ""}
       ${x.parcial ? `<div class="paso-det"><div class="aviso aviso-info" style="margin:0">${ICONOS.alerta}<div>Hay facturas por cobrar con su IVA ya reservado (${esc(fmtARS(liq.ivaPorCobrarArs))}). Ahora se reparte lo que hay en caja; los otros ${esc(fmtUSD(x.aCobrarUsd))} quedan a favor de cada socio hasta que se cobren.</div></div></div>` : ""}
       ${x.negativos && x.negativos.length ? `<div class="paso-det"><div class="aviso" style="margin:0">${ICONOS.alerta}<div>${x.negativos.map(m => `${esc(m.quien)} recibió ${esc(fmtUSD(-m.usd))} de más`).join("; ")}: se compensa con lo que tenga a favor en otros proyectos o reponiendo la diferencia.</div></div></div>` : ""}
@@ -228,8 +234,18 @@ function panelCerrar(p, liq) {
     <div class="form-pie" style="margin-top:14px"><button class="btn btn-pri" id="lq-cerrar">${ICONOS.bandera}Cerrar el proyecto</button></div></section>`;
 }
 
+/* ---------- informe de cierre ---------- */
+function panelInforme(p) {
+  const com = informes[p.id];
+  return `<section class="panel no-imprimir"><div class="panel-cab"><div><h2>Informe de cierre</h2><p class="panel-sub">Para los socios. Las tablas salen directo de los números de esta pantalla: resumen, ingresos, egresos, resultado en cascada, impuestos y reservas, préstamos y reparto, y cotizado contra real por rubro.</p></div>
+    <div class="cab-acciones"><button class="btn btn-sec btn-chico" id="lq-ver">Ver el informe</button><button class="btn btn-pri btn-chico" id="lq-pdf">${ICONOS.descargar || ""}Descargar PDF</button></div></div>
+    <div class="inf-ia"><div><b>Análisis de la IA</b> <span class="mute">(opcional)</span><p class="panel-sub" style="margin:2px 0 0">${com ? "Se agrega al final del informe y del PDF." : "Un comentario con lo que explica el resultado y lecciones para la próxima cotización. Usa solo las tablas del informe."}</p></div>
+      <div class="inf-ia-acc">${com ? `<button class="btn btn-fant btn-chico" id="lq-ia-quitar">Quitar</button>` : ""}<button class="btn btn-sec btn-chico" id="lq-ia">${com ? "Volver a generar" : "Agregar análisis"}</button></div></div>
+    <div id="lq-texto">${com ? `<div class="informe">${formatear(com)}</div>` : ""}</div></section>`;
+}
+
 /* ---------- eventos ---------- */
-function cablear(el, p, s, liq, cerrado) {
+function cablear(el, p, s, liq, cerrado, sg) {
   $("#lq-imprimir", el).addEventListener("click", () => window.print());
   const qf = $("#lq-fecha", el);
   if (qf) qf.addEventListener("change", () => { if (!qf.value) return; s.fecha = qf.value; s.mepManual = false; s.mepBuscado = ""; app.refrescar(); });
@@ -262,36 +278,39 @@ function cablear(el, p, s, liq, cerrado) {
     toast("Proyecto reabierto. Sus fichas salieron de la base de costos hasta que se vuelva a cerrar.");
   }, "Tocá de nuevo para reabrir"));
 
-  $("#lq-informe", el).addEventListener("click", async ev => {
+  const datos = () => INF.armar(M.proyecto(p.id) || p, liq, sg, cerrado);
+  $("#lq-ver", el).addEventListener("click", () => {
+    const d = datos();
+    const md = modal(`Informe de cierre · ${p.nombre}`, `<div class="informe-cierre">${INF.html(d, informes[p.id], formatear)}</div>
+      <div class="form-pie"><button class="btn btn-pri" id="inf-pdf">Descargar PDF</button><button class="btn btn-sec" type="button" data-cerrar>Cerrar</button></div>`, { ancho: 980 });
+    $("#inf-pdf", md).addEventListener("click", ev => bajarPdf(ev.currentTarget, d, informes[p.id]));
+  });
+  $("#lq-pdf", el).addEventListener("click", ev => bajarPdf(ev.currentTarget, datos(), informes[p.id]));
+  const bq = $("#lq-ia-quitar", el);
+  if (bq) bq.addEventListener("click", () => { delete informes[p.id]; app.refrescar(); });
+  $("#lq-ia", el).addEventListener("click", async ev => {
     const b = ev.currentTarget;
     if (!IA.hayClave()) return toast("Falta la clave de IA en Ajustes → Impuestos e IA.", "error");
-    b.disabled = true; b.textContent = "Redactando…";
-    $("#lq-texto", el).innerHTML = `<div class="vacio"><span class="punto"></span>La IA está leyendo el cierre del proyecto…</div>`;
+    b.disabled = true; b.textContent = "Analizando…";
+    $("#lq-texto", el).innerHTML = `<div class="vacio"><span class="punto"></span>La IA está leyendo el informe…</div>`;
     try {
-      const fichas = cerrado ? S.fichas.filter(f => f.proyecto === p.id && f.origen === "cierre") : L.fichasDe(p, s.fecha).fichas;
-      const r0 = v => Math.round(Number(v) || 0);
-      const datos = {
-        fecha_liquidacion: s.fecha, dolar_liquidacion: s.mep, cerrado,
-        resultado_usd: { cobrado: r0(liq.r.ventasUsd), costos: r0(liq.r.costosUsd), honorarios: r0(liq.r.honorariosUsd), intereses: r0(liq.r.interesesUsd), antes_de_impuestos: r0(liq.r.resultadoUsd), iibb: r0(liq.r.impuestos.iibbUsd), cheque: r0(liq.r.impuestos.chequeUsd), ganancias: r0(liq.r.impuestos.gananciasCostoUsd), neto_impuestos: r0(liq.r.resultadoNetoUsd), estructura_neta: r0(liq.asignadoNeto), diferencia_cambio: r0(liq.difTotalUsd), final: r0(liq.finalUsd) },
-        liquidacion: liq.pasos.map(x => ({ paso: x.n, que: x.titulo, falta_usd: r0(x.faltaUsd), detalle: x.filas.map(f => ({ quien: f.quien, usd: r0(f.usd ?? (f.ars / (s.mep || 1))) })) })),
-        items_costo_unitario_usd: fichas.map(f => ({ item: f.numero, descripcion: f.descripcion.slice(0, 70), unidad: f.unidad, cantidad: f.cantidad, cotizado_u: Math.round(f.cot.total * 100) / 100, real_u: Math.round(f.real.item * 100) / 100, con_generales_u: Math.round(f.real.total * 100) / 100, desvio_pct: f.desvioPct == null ? null : Math.round(f.desvioPct * 1000) / 10, mano_obra_u: Math.round(f.real.mo), equipos_u: Math.round(f.real.eq), materiales_u: Math.round(f.real.mat), subcontratos_u: Math.round(f.real.sub) })),
-        gastos_generales_pct: fichas[0] && fichas[0].ggPct != null ? Math.round(fichas[0].ggPct * 1000) / 10 : null,
-        proyecto: contextoProyecto(p)
-      };
-      const sistema = "Sos el asistente de gestión de MICA (Minería Integral Catamarca), una empresa de servicios mineros con cuatro socios. Redactás el informe de cierre de una obra para los socios: claro, sobrio, en español rioplatense y con oraciones cortas. Usás solo los datos que te pasan; si algo falta, lo decís. Los montos van en dólares MEP salvo que se indique pesos. No inventes cifras.";
-      const pedido = `Redactá el informe de cierre del proyecto ${p.nombre}. Estructura: 1) Resultado en tres líneas (final para los socios y margen contra lo cotizado). 2) Cómo terminó contra lo cotizado: ítems con mayor desvío y por qué parte del costo (mano de obra, equipos, materiales, subcontratos). 3) Gastos generales e indirectos. 4) Cobranza y financiamiento: anticipo, préstamos, intereses y diferencia de cambio. 5) Liquidación y reparto entre los socios. 6) Lecciones para cotizar la próxima obra: qué costos unitarios conviene corregir y en cuánto, con números. Usá títulos cortos y viñetas. Máximo 500 palabras.\n\nDatos:\n${JSON.stringify(datos)}`;
-      informes[p.id] = await IA.texto([{ role: "user", content: pedido }], { sistema, maxTokens: 2000 });
+      const sistema = "Sos el asistente de gestión de MICA (Minería Integral Catamarca), una empresa de servicios mineros con cuatro socios. Escribís para los socios: claro, sobrio, en español rioplatense y con oraciones cortas. Usás solo los datos que te pasan. No inventes cifras ni repitas las tablas: interpretalas. Los montos van en dólares MEP salvo que se indique otra moneda. Si un dato falta (por ejemplo, el costo cotizado), decilo en una línea y seguí con lo que hay.";
+      const pedido = `Este es el informe de cierre del proyecto ${p.nombre}${cerrado ? "" : " (simulación: el proyecto sigue abierto)"}. Escribí un análisis breve, de 250 a 400 palabras, con tres títulos cortos (usá "## "): 1) Qué explica el resultado. 2) Desvíos y puntos de atención (costos, impuestos, cobranza, financiamiento, diferencia de cambio). 3) Lecciones para cotizar la próxima obra, con números concretos. Usá viñetas. Terminá con una oración completa.\n\n${INF.textoParaIA(datos())}`;
+      informes[p.id] = await IA.texto([{ role: "user", content: pedido }], { sistema, maxTokens: 3000 });
       app.refrescar();
     } catch (err) {
       $("#lq-texto", el).innerHTML = `<div class="aviso" style="margin:0">${ICONOS.alerta}<div>${esc(err.message)}</div></div>`;
-      b.disabled = false; b.textContent = "Generar informe";
+      b.disabled = false; b.textContent = "Agregar análisis";
     }
   });
-  const bco = $("#lq-copiar", el);
-  if (bco) bco.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(informes[p.id]); toast("Informe copiado"); }
-    catch (e) { const rg = document.createRange(); rg.selectNodeContents($(".informe", el)); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); toast("Texto seleccionado: copialo con Ctrl+C"); }
-  });
+}
+
+async function bajarPdf(b, d, comentario) {
+  const txt = b.innerHTML;
+  b.disabled = true; b.textContent = "Armando el PDF…";
+  try { await INF.pdf(d, comentario); toast("PDF descargado"); }
+  catch (e) { toast(e && e.message ? e.message : "No se pudo armar el PDF.", "error"); }
+  finally { b.disabled = false; b.innerHTML = txt; }
 }
 
 /* ---------- registrar movimientos de la liquidación ---------- */

@@ -214,7 +214,8 @@ export function seguimiento(p) {
     costoCotizado: cot, costoReal: real, costoProyectado: proyectado,
     avanceGasto: cot > 0 ? real / cot : null,
     precio: t.precio, margenCotizado: t.precio - cot, margenProyectado: t.precio - proyectado,
-    margenCotizadoPct: t.precio > 0 ? (t.precio - cot) / t.precio : null,
+    // Sin costo cotizado no hay margen cotizado (daría 100%).
+    margenCotizadoPct: t.precio > 0 && cot > 0 ? (t.precio - cot) / t.precio : null,
     margenProyectadoPct: t.precio > 0 ? (t.precio - proyectado) / t.precio : null,
     hayCostos: cot > 0
   };
