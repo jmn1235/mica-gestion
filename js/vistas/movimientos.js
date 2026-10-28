@@ -23,7 +23,7 @@ export function render(el) {
   const meses = Array.from(new Set(todos.map(M.mesDe))).filter(Boolean).sort().reverse();
 
   const nombre = p ? p.nombre : ctx.tipo === "mica" ? "MICA: proyectos y estructura" : "Magna: toda la cuenta";
-  const puedeCargar = PER.esAdmin() || (PER.esOperativo() && PER.proyectosPermitidos().length > 0);
+  const puedeCargar = PER.esAdmin() || (PER.esOperativo() && PER.bolsillosPermitidos().length > 0);
   let h = cabecera("", "Movimientos", esc(nombre), puedeCargar ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}${PER.esAdmin() ? "Cargar" : "Proponer gasto"}</a>` : "");
   h += PER.avisoPendientesHtml(s => s.coleccion !== "movimientos" || conj.has((s.datos || s.anterior || {}).bolsillo));
 
@@ -148,7 +148,7 @@ function filaMov(m, ref) {
   const tags = [];
   if (m.tipo === "pase") tags.push(`<span class="tag tag-borde">Pase</span>`);
   if (m.cotizacionFuente === "aprox") tags.push(`<span class="tag tag-alerta" title="Se usó la cotización de otro día">Cotización a revisar</span>`);
-  if (m.fueraDeCaja) tags.push(`<span class="tag tag-borde" title="Lo pagó Julio con su plata y no se le devuelve: no pasa por el banco">Pagó Julio · sin reintegro</span>`);
+  if (m.fueraDeCaja) tags.push(`<span class="tag tag-borde" title="Lo pagó con su plata y no se le devuelve: no pasa por el banco">Pagó ${esc(M.socioNombre(M.quienPagoSinReintegro(m)))} · sin reintegro</span>`);
   if (m.pagadoPor) tags.push(`<span class="tag tag-borde" title="Quedó como préstamo del socio">Pagó ${esc(M.socioNombre(m.pagadoPor))}</span>`);
   if (m.operacion) tags.push(`<span class="tag tag-borde" title="Registrada desde la ficha del socio">Devolución detallada</span>`);
   if (m.gastoVinculado) tags.push(`<span class="tag tag-borde" title="Generado por un gasto pagado por el socio">Por gasto pagado</span>`);

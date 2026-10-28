@@ -30,8 +30,8 @@ export function render(el, params) {
     el.innerHTML = cabecera("", "Cargar") + `<div class="panel vacio"><b>Tu usuario es de consulta</b>Podés ver y exportar toda la información, pero no cargar ni modificar datos.<div style="margin-top:14px"><a class="btn btn-sec" href="#movimientos">Ver movimientos</a></div></div>`;
     return;
   }
-  if (!admin && !PER.proyectosPermitidos().length) {
-    el.innerHTML = cabecera("", "Cargar") + `<div class="panel vacio"><b>No tenés proyectos asignados</b>Pedile a Julio que te habilite un proyecto para proponer gastos y avance.</div>`;
+  if (!admin && !PER.bolsillosPermitidos().length) {
+    el.innerHTML = cabecera("", "Cargar") + `<div class="panel vacio"><b>No tenés nada habilitado para cargar</b>Pedile a Julio que te habilite un proyecto, Estructura o Magna para proponer gastos.</div>`;
     return;
   }
   // Pedido pendiente que el operativo está corrigiendo (#cargar/sol/<id>).
@@ -94,8 +94,9 @@ export function render(el, params) {
   const solPrev = solR || sol0 || (m0 && !admin ? PER.pendienteDe("movimientos", m0.id) : null);
   const ctx = app.ctx;
   const proyCtx = ctx.tipo === "proyecto" ? ctx.id : (M.proyectosOrdenados().find(p => p.estado === "activo") || M.proyectosOrdenados()[0] || {}).id || "";
-  const permitidos = admin ? null : PER.proyectosPermitidos().map(p => p.id);
-  const bolDefecto = !admin ? (permitidos.includes(ctx.id) ? ctx.id : permitidos[0]) : ctx.tipo === "proyecto" ? ctx.id : ctx.tipo === "mica" ? "ESTRUCTURA" : "MAGNA";
+  const permitidos = admin ? null : PER.bolsillosPermitidos();
+  const bolCtx = ctx.tipo === "proyecto" ? ctx.id : ctx.tipo === "mica" ? "ESTRUCTURA" : "MAGNA";
+  const bolDefecto = !admin ? (permitidos.includes(bolCtx) ? bolCtx : permitidos[0]) : bolCtx;
   // Datos propuestos por la IA (factura leída o gasto escrito), para revisar antes de guardar.
   const pre = solX ? Object.assign({}, solX.datos, { fecha: solX.datos.fecha }) : !m0 && !sol0 && !solR ? tomarPrefill() : null;
   const tipo0 = !admin ? "egreso" : m0 ? m0.tipo : pre ? pre.tipo : (["egreso", "ingreso", "pase"].includes(params[1]) ? params[1] : "egreso");
@@ -180,7 +181,10 @@ export function render(el, params) {
       <div class="campo" id="c-pagadopor"><label for="f-pagadopor">Socio que lo pagó</label><select id="f-pagadopor"><option value="">Elegí el socio</option>${SOCIOS.map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join("")}</select></div>
     </div>
 
-    <label class="check" data-ver="fueradecaja"><input type="checkbox" id="f-fueradecaja"><span><b>Lo pagué yo con mi plata, sin reintegro</b><br><span class="mute">La factura es de Magna y su IVA cuenta, pero no sale de la cuenta del banco ni queda a tu favor.</span></span></label>
+    <div class="bloque-socio" data-ver="fueradecaja">
+      <label class="check"><input type="checkbox" id="f-fueradecaja"><span><b>Lo pagó un socio con su plata, sin reintegro</b><br><span class="mute">La factura es de Magna y su IVA cuenta, pero no sale de la cuenta del banco ni queda a favor del socio. Queda registrado quién la pagó.</span></span></label>
+      <div class="campo" id="c-sinreint"><label for="f-sinreint">Socio que la pagó</label><select id="f-sinreint">${SOCIOS.map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join("")}</select></div>
+    </div>
 
     <label class="check" data-ver="recuperable"><input type="checkbox" id="f-recuperable"><span><b>Gasto recuperable</b><br><span class="mute">Lo paga Magna por ser la razón social de MICA (contadora de la SRL, CASEMICA…). Queda a favor de Julio y se le reintegra.</span></span></label>
 
@@ -274,7 +278,7 @@ export function render(el, params) {
       pase: tipo === "pase", gasto: esGasto, socio: M.pideSocio(tipo, clase), tasa: M.pideTasa(tipo, clase),
       tipocosto: esGasto && M.esBolsilloProyecto(bol), comprobante: esGasto || esVentaC, fiscal: esGasto,
       iva: (esGasto && fiscal === "A") || esVentaC, recuperable: esGasto && bol === "MAGNA" && !q("fueradecaja").checked,
-      fueradecaja: esGasto && bol === "MAGNA" && admin,
+      fueradecaja: esGasto && bol === "MAGNA",
       perc: esGasto && (fiscal === "A" || fiscal === "B"), percIva: esGasto && fiscal === "A",
       desglose: esGasto || esVentaC, pagosocio: esGasto && M.admitePrestamoSocio(bol)
     };
@@ -288,6 +292,7 @@ export function render(el, params) {
     q("monto-hint").textContent = esGasto ? (fiscal === "A" || fiscal === "B" ? "Total de la factura: IVA, percepciones e impuestos internos incluidos." : "Lo que se pagó, total.") : esVentaC ? "Con IVA incluido." : "";
     $("#f-pago-bol", f).textContent = M.esBolsilloProyecto(bol) ? "proyecto" : "bolsillo de Estructura";
     $("#c-pagadopor", f).hidden = !q("pagosocio").checked;
+    $("#c-sinreint", f).hidden = !q("fueradecaja").checked;
     const hc = $("#hint-cert", f);
     if (hc) hc.hidden = !(esVentaC && !m0);
     $("#l-comprobante", f).innerHTML = esVentaC ? 'N° de factura <span class="opc">(opcional)</span>' : 'N° de comprobante <span class="opc">(opcional)</span>';
@@ -393,6 +398,7 @@ export function render(el, params) {
   q("otrosTrib").value = Number(st.otrosTribARS) ? fmtMiles(st.otrosTribARS) : "";
   q("noGravado").value = Number(st.noGravadoARS) ? fmtMiles(st.noGravadoARS) : "";
   q("fueradecaja").checked = !!st.fueraDeCaja;
+  q("sinreint").value = st.fueraDeCaja ? M.quienPagoSinReintegro(st) : app.usuario.socio;
   q("pagosocio").checked = !!st.pagadoPor || (!admin && !m0 && !solPrev && !!(pre && pre.pagadoPor));
   q("pagadopor").value = st.pagadoPor || (!admin ? app.usuario.socio : "");
   q("alicuota").value = String(st.alicuota != null && st.alicuota !== "" ? st.alicuota : 21);
@@ -485,7 +491,7 @@ export function render(el, params) {
     const pc = esGasto ? leerPerc() : { percIIBB: 0, percIVA: 0, percGan: 0 };
     const perc = pc.percIIBB + pc.percIVA + pc.percGan;
     const ot = esGasto ? leerOtros() : { otrosTribARS: 0, noGravadoARS: 0 };
-    const fuera = esGasto && bol === "MAGNA" && admin && q("fueradecaja").checked;
+    const fuera = esGasto && bol === "MAGNA" && q("fueradecaja").checked;
     const pagado = esGasto && M.admitePrestamoSocio(bol) && q("pagosocio").checked ? q("pagadopor").value : "";
     if (!fecha) return marcarError("fecha", "Falta la fecha.");
     if (!bol) return marcarError("bolsillo", "Elegí el bolsillo.");
@@ -523,7 +529,7 @@ export function render(el, params) {
       ivaARS: Math.round(iva * 100) / 100,
       percIIBB: Math.round(pc.percIIBB * 100) / 100, percIVA: Math.round(pc.percIVA * 100) / 100, percGan: Math.round(pc.percGan * 100) / 100,
       otrosTribARS: Math.round(ot.otrosTribARS * 100) / 100, noGravadoARS: Math.round(ot.noGravadoARS * 100) / 100,
-      fueraDeCaja: fuera,
+      fueraDeCaja: fuera, pagoSinReintegro: fuera ? q("sinreint").value : "",
       pagadoPor: pagado,
       comprobante: esGasto || esVentaC ? q("comprobante").value.trim() : "",
       recuperable: esGasto && bol === "MAGNA" && !fuera ? q("recuperable").checked : false,

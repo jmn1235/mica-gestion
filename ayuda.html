@@ -245,7 +245,7 @@ details > :last-child { margin-bottom: 14px; }
         <thead><tr><th>Permiso</th><th>Quién</th><th>Qué puede hacer</th></tr></thead>
         <tbody>
           <tr><td><strong>Administrador</strong></td><td>Julio</td><td>Carga y modifica todo, configura la app y aprueba lo que proponen los demás.</td></tr>
-          <tr><td><strong>Operativo</strong></td><td>Jeremías, Jorge y José</td><td>Ve y exporta todo. Propone gastos de obra (altas, cambios y bajas) y el avance físico de cada proyecto.</td></tr>
+          <tr><td><strong>Operativo</strong></td><td>Jeremías, Jorge y José</td><td>Ve y exporta todo. Propone gastos de obra (altas, cambios y bajas) y el avance físico de cada proyecto. Si Julio se lo habilita, también propone gastos de MICA · Estructura y de Magna.</td></tr>
           <tr><td><strong>Veedor</strong></td><td>Hoy nadie</td><td>Ve y exporta todo. No propone ni modifica nada.</td></tr>
         </tbody>
       </table></div>
@@ -572,8 +572,10 @@ details > :last-child { margin-bottom: 14px; }
       </ul>
       <h3>Compras propias de Magna (combustible, corralón)</h3>
       <ul>
-        <li>Se cargan en <span class="ui">Magna · Julio</span>, con la categoría <strong>Combustible</strong>, <strong>Materiales de corralón</strong> u <strong>Otros</strong>.</li>
-        <li>Si las pagaste vos y Magna no te las devuelve, marcá <span class="ui">Lo pagué yo con mi plata, sin reintegro</span>: el IVA cuenta para Magna, pero no sale de la cuenta del banco.</li>
+        <li>Se cargan en <span class="ui">Magna · Julio</span>, con la categoría <strong>Combustible</strong>, <strong>Materiales de corralón</strong> u <strong>Otros</strong>. Las puede cargar Julio o un operativo habilitado para Magna (queda pendiente hasta que Julio lo aprueba).</li>
+        <li>Si la pagó un socio con su plata y Magna no se la devuelve, marcá <span class="ui">Lo pagó un socio con su plata, sin reintegro</span> y elegí quién. El IVA cuenta para Magna, pero no sale de la cuenta del banco y no queda como préstamo.</li>
+        <li>En <span class="ui">Magna · IVA y contadora</span>, la tabla <strong>Quién aportó el crédito fiscal</strong> muestra cuánto IVA aportó cada socio con estas compras.</li>
+        <li>En cambio, si un socio paga con su plata un gasto de <strong>MICA · Estructura</strong>, queda como <strong>préstamo suyo</strong>, igual que en las obras.</li>
         <li>Con <span class="ui">Leer factura</span>, la IA reconoce los tiques de estación de servicio (Tique factura A, código 081) y separa el <strong>impuesto a los combustibles</strong> («impuestos internos» u «otros tributos»): es costo, no es IVA. Abajo muestra el control: neto gravado + IVA + impuestos internos = total.</li>
         <li>Si cargás un tique de combustible estando en un proyecto, te ofrece pasarlo a Magna · Julio. Después recuerda a cada estación.</li>
       </ul>

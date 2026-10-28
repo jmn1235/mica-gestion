@@ -125,6 +125,8 @@ export const noGravado = m => Number(m.noGravadoARS) || 0;
 /* Gasto que Julio pagó con su plata y Magna no le devuelve: cuenta para el IVA de Magna,
    pero no pasa por la cuenta del banco (no toca saldos ni paga impuesto al cheque). */
 export const fueraDeCaja = m => !!m.fueraDeCaja;
+/* Quién pagó con su plata un gasto de Magna sin reintegro (los anteriores a la v12 los pagó Julio). */
+export const quienPagoSinReintegro = m => (m.fueraDeCaja ? m.pagoSinReintegro || TITULAR_MAGNA : "");
 /* Tasa anual en dólares de los préstamos que nacen de gastos pagados por un socio. */
 export const tasaGastosSocios = () => Number((S.config.general || {}).tasaGastosSocios) || 0;
 /* Bolsillos donde un gasto pagado por un socio puede quedar como préstamo suyo. */

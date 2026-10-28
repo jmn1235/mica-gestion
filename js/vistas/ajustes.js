@@ -409,7 +409,7 @@ function impuestosIA(cont, soloIA) {
 function usuarios(cont) {
   const otros = USUARIOS.filter(u => PER.permisoDe(u.socio).rol !== "admin");
   const proys = M.proyectosOrdenados().filter(p => p.estado !== "cerrado");
-  cont.innerHTML = `<section class="panel" style="max-width:860px"><div class="panel-cab"><div><h2>Usuarios y permisos</h2><p class="panel-sub">Vos sos el administrador. Los operativos ven todo y proponen gastos de obra y avance físico de los proyectos que les habilites; nada se aplica hasta que lo apruebes en <a href="#aprobaciones">Aprobaciones</a>. Los veedores ven y exportan, sin modificar.</p></div></div>
+  cont.innerHTML = `<section class="panel" style="max-width:860px"><div class="panel-cab"><div><h2>Usuarios y permisos</h2><p class="panel-sub">Vos sos el administrador. Los operativos ven todo y proponen gastos y avance físico de los proyectos que les habilites, y si querés también gastos de MICA · Estructura y de Magna; nada se aplica hasta que lo apruebes en <a href="#aprobaciones">Aprobaciones</a>. Los veedores ven y exportan, sin modificar.</p></div></div>
     <form class="form" id="fus" novalidate>
       ${otros.map(u => { const per = PER.permisoDe(u.socio); return `<fieldset class="us-fila" data-socio="${esc(u.socio)}">
         <legend><b>${esc(M.socioNombre(u.socio))}</b> <span class="mute chico">${esc(u.email)}</span></legend>
@@ -418,6 +418,8 @@ function usuarios(cont) {
           <div class="campo" data-proys><span class="rotulo">Proyectos donde propone</span>
             <label class="check"><input type="checkbox" data-todos${per.proyectos === "todos" ? " checked" : ""}><span>Todos, incluidos los que se creen después</span></label>
             ${proys.map(p => `<label class="check" data-uno><input type="checkbox" value="${esc(p.id)}"${per.proyectos === "todos" || per.proyectos.includes(p.id) ? " checked" : ""}><span>${esc(p.nombre)}</span></label>`).join("")}
+            <span class="rotulo" style="margin-top:10px">Además, gastos de</span>
+            ${PER.BOLS_OPERATIVO.map(b => `<label class="check" data-bol><input type="checkbox" value="${esc(b.id)}"${per.bolsillos.includes(b.id) ? " checked" : ""}><span>${esc(b.nombre)}</span></label>`).join("")}
           </div>
         </div></fieldset>`; }).join("")}
       <div class="form-pie"><button class="btn btn-pri" type="submit">Guardar permisos</button></div>
@@ -439,8 +441,9 @@ function usuarios(cont) {
       const rol = $("[data-rol]", fs).value;
       const todos = $("[data-todos]", fs).checked;
       const lista = $$("[data-uno] input", fs).filter(i => i.checked).map(i => i.value);
-      if (rol === "operativo" && !todos && !lista.length) return toast(`Elegí al menos un proyecto para ${M.socioNombre(fs.dataset.socio)}, o pasalo a veedor.`, "error");
-      usuariosCfg[fs.dataset.socio] = { rol, proyectos: rol === "operativo" && !todos ? lista : "todos" };
+      const bols = $$("[data-bol] input", fs).filter(i => i.checked).map(i => i.value);
+      if (rol === "operativo" && !todos && !lista.length && !bols.length) return toast(`Elegí al menos un proyecto, Estructura o Magna para ${M.socioNombre(fs.dataset.socio)}, o pasalo a veedor.`, "error");
+      usuariosCfg[fs.dataset.socio] = { rol, proyectos: rol === "operativo" && !todos ? lista : "todos", bolsillos: rol === "operativo" ? bols : [] };
     }
     guardarConfig("permisos", { usuarios: usuariosCfg, modificado: new Date().toISOString(), por: app.usuario.socio });
     editandoProyecto = false;

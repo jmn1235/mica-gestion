@@ -16,17 +16,22 @@ import { toast, fmtARS, fmtFecha, mesLabel, ICONOS } from "./ui.js";
 
 export const ROLES = [
   { id: "admin", nombre: "Administrador", detalle: "Carga, modifica y aprueba todo." },
-  { id: "operativo", nombre: "Operativo", detalle: "Ve todo. Propone gastos de obra y avance físico, que quedan pendientes de aprobación." },
+  { id: "operativo", nombre: "Operativo", detalle: "Ve todo. Propone gastos (de obra, de Estructura o de Magna, según lo habilitado) y avance físico, que quedan pendientes de aprobación." },
   { id: "veedor", nombre: "Veedor", detalle: "Ve y exporta todo. No modifica nada." }
 ];
 export const nombreRol = id => (ROLES.find(r => r.id === id) || {}).nombre || id;
 const BOLS_FIJOS = ["MAGNA", "RESERVA", "ESTRUCTURA"];
+/* Bolsillos que no son de una obra donde un operativo puede proponer gastos (si se lo habilitan). */
+export const BOLS_OPERATIVO = [{ id: "ESTRUCTURA", nombre: "MICA · Estructura" }, { id: "MAGNA", nombre: "Magna · Julio (compras de Magna)" }];
 
 /* ---------- roles ---------- */
 export function permisoDe(socio) {
-  if (socio === TITULAR_MAGNA) return { rol: "admin", proyectos: "todos" };
+  if (socio === TITULAR_MAGNA) return { rol: "admin", proyectos: "todos", bolsillos: BOLS_OPERATIVO.map(b => b.id) };
   const u = ((S.config.permisos || {}).usuarios || {})[socio] || {};
-  return { rol: u.rol === "veedor" ? "veedor" : "operativo", proyectos: Array.isArray(u.proyectos) ? u.proyectos : "todos" };
+  return {
+    rol: u.rol === "veedor" ? "veedor" : "operativo", proyectos: Array.isArray(u.proyectos) ? u.proyectos : "todos",
+    bolsillos: Array.isArray(u.bolsillos) ? u.bolsillos.filter(b => BOLS_OPERATIVO.some(x => x.id === b)) : []
+  };
 }
 export const rol = () => (app.usuario ? permisoDe(app.usuario.socio).rol : "veedor");
 export const esAdmin = () => rol() === "admin";
@@ -44,9 +49,19 @@ export function proyectoPermitido(pid, socio = app.usuario && app.usuario.socio)
 }
 export const proyectosPermitidos = () => M.proyectosOrdenados().filter(p => proyectoPermitido(p.id));
 
-/* Un movimiento que el operativo puede pedir modificar o dar de baja: un gasto de un proyecto suyo. */
+/* Bolsillos donde el usuario puede cargar o proponer gastos: sus proyectos y, si se los habilitaron, Estructura y Magna. */
+export function bolsilloPermitido(bol, socio = app.usuario && app.usuario.socio) {
+  if (!bol) return false;
+  const per = permisoDe(socio);
+  if (per.rol === "admin") return true;
+  if (BOLS_OPERATIVO.some(b => b.id === bol)) return per.rol === "operativo" && per.bolsillos.includes(bol);
+  return proyectoPermitido(bol, socio);
+}
+export const bolsillosPermitidos = () => M.bolsillos().filter(b => bolsilloPermitido(b.id) && !(b.proyecto && b.estado === "cerrado")).map(b => b.id);
+
+/* Un movimiento que el operativo puede pedir modificar o dar de baja: un gasto de un bolsillo habilitado. */
 export function puedeProponerMov(m) {
-  return esOperativo() && !!m && M.esCosto(m) && !m.certificado && proyectoPermitido(m.bolsillo);
+  return esOperativo() && !!m && M.esCosto(m) && !m.certificado && bolsilloPermitido(m.bolsillo);
 }
 /* Puede tocar el movimiento en pantalla (directo o como pedido). */
 export const puedeEditarMov = m => esAdmin() || puedeProponerMov(m);
@@ -58,7 +73,7 @@ fijarGuardia(col => {
   if (col === "solicitudes" && esOperativo()) return true;
   if (Date.now() - ultimoAviso > 1500) {
     ultimoAviso = Date.now();
-    toast(esOperativo() ? "Ese cambio lo hace Julio. Vos podés proponer gastos de obra y avance físico." : "Tu usuario es de consulta: no modifica datos.", "error");
+    toast(esOperativo() ? "Ese cambio lo hace Julio. Vos podés proponer gastos y avance físico." : "Tu usuario es de consulta: no modifica datos.", "error");
   }
   return false;
 });
@@ -156,14 +171,16 @@ export function resumen(col, d) {
 
 /* Campos que cambian entre el dato actual y el pedido, en palabras. */
 const CAMPOS_MOV = [
-  ["fecha", "Fecha", v => fmtFecha(v)], ["bolsillo", "Proyecto", v => M.nombreBolsillo(v)], ["montoARS", "Monto", v => fmtARS(v)],
+  ["fecha", "Fecha", v => fmtFecha(v)], ["bolsillo", "Asignado a", v => M.nombreBolsillo(v)], ["montoARS", "Monto", v => fmtARS(v)],
   ["cotizacion", "Dólar MEP", v => String(v || "").replace(".", ",")], ["proveedor", "Proveedor"], ["concepto", "Concepto"],
   ["imputacion", "Imputación", (v, d) => M.nombreImputacion(Object.assign({}, d, { imputacion: v }), 60)], ["tipoCosto", "Categoría", v => M.nombreCategoria(v)],
   ["subcategoria", "Subcategoría"],
   ["fiscal", "Comprobante", v => (M.FISCAL.find(x => x.id === v) || {}).nombre || v || "—"],
   ["alicuota", "Alícuota de IVA", v => (Number(v) || v === "varias" ? M.nombreAlicuota(v) : "")], ["ivaARS", "IVA", v => (Number(v) ? fmtARS(v) : "")],
   ["percIIBB", "Percepción de IIBB", v => (Number(v) ? fmtARS(v) : "")], ["percIVA", "Percepción de IVA", v => (Number(v) ? fmtARS(v) : "")], ["percGan", "Percepción de Ganancias", v => (Number(v) ? fmtARS(v) : "")],
+  ["otrosTribARS", "Impuestos internos", v => (Number(v) ? fmtARS(v) : "")], ["noGravadoARS", "No gravado", v => (Number(v) ? fmtARS(v) : "")],
   ["pagadoPor", "Lo pagó (préstamo)", v => M.socioNombre(v)],
+  ["pagoSinReintegro", "Lo pagó sin reintegro", v => M.socioNombre(v)],
   ["comprobante", "N° de comprobante"], ["notas", "Notas"]
 ];
 export function diferencias(sol, datos = sol.datos) {
