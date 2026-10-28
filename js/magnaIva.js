@@ -109,6 +109,25 @@ export function totalesPorOrigen(desde, hasta, conRC = hayDatos()) {
   });
 }
 
+/* Compras propias de Magna en un rango de meses, según quién las pagó:
+   cada socio que pagó con su plata sin reintegro, o la cuenta de Magna.
+   Sirve para ver cuánto crédito fiscal aportó cada uno. */
+export function comprasMagnaPorQuien(desde, hasta) {
+  const por = {};
+  S.movimientos.forEach(m => {
+    if (!M.esCosto(m) || m.bolsillo !== "MAGNA") return;
+    const mes = M.mesDe(m);
+    if (mes < desde || mes > hasta) return;
+    const k = m.fueraDeCaja ? M.quienPagoSinReintegro(m) : "CUENTA";
+    const x = (por[k] = por[k] || { quien: k, nombre: k === "CUENTA" ? "La cuenta de Magna" : M.socioNombre(k), sinReintegro: k !== "CUENTA", facturas: 0, total: 0, iva: 0, percIVA: 0 });
+    x.facturas++;
+    x.total += n(m.montoARS);
+    if (m.fiscal === "A") x.iva += n(m.ivaARS);
+    x.percIVA += n(m.percIVA);
+  });
+  return Object.values(por).map(x => ({ ...x, credito: x.iva + x.percIVA })).sort((a, b) => (a.quien === "CUENTA") - (b.quien === "CUENTA") || b.credito - a.credito);
+}
+
 /* Filas para la hoja «IVA por origen» de la planilla. */
 export function filasPorOrigen(desde, hasta, conRC = hayDatos()) {
   const mapa = porOrigenYMes(conRC);

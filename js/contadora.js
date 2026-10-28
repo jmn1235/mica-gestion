@@ -31,7 +31,7 @@ export function datosFiscales() {
   return { razonSocial: g.razonSocial || "Magna Desarrollos SRL", cuit: g.cuit || "" };
 }
 const cuitProveedor = nombre => { const p = S.proveedores.find(x => x.nombre && nombre && x.nombre.toLowerCase() === String(nombre).toLowerCase()); return p ? p.cuit || "" : ""; };
-const pagadoTxt = m => (m.fueraDeCaja ? "Julio, con su plata (sin reintegro)" : m.pagadoPor ? `${M.socioNombre(m.pagadoPor)} (préstamo del socio)` : (S.cuentas.find(c => c.id === (m.cuenta || "c_magna")) || {}).nombre || "Cuenta de Magna");
+const pagadoTxt = m => (m.fueraDeCaja ? `${M.socioNombre(M.quienPagoSinReintegro(m))}, con su plata (sin reintegro)` : m.pagadoPor ? `${M.socioNombre(m.pagadoPor)} (préstamo del socio)` : (S.cuentas.find(c => c.id === (m.cuenta || "c_magna")) || {}).nombre || "Cuenta de Magna");
 /* De qué parte de Magna es cada movimiento. */
 export function origenDe(bolsillo) {
   if (bolsillo === "RC") return "Río Colorado";
@@ -165,7 +165,7 @@ export async function exportarContadora(desde, hasta, usuario, opciones = {}) {
   ], d.compras, { titulo: `${fis.razonSocial} · Compras con factura`, subtitulo: sub, totales: true, congelarCol: 3, notas: [
     "Neto gravado: total del comprobante menos IVA, percepciones, impuestos internos y lo no gravado. En las facturas B o C el IVA no se discrimina y queda dentro del neto gravado.",
     "Impuestos internos y otros tributos: por ejemplo, el impuesto a los combustibles de las cargas de nafta o gasoil. Son costo, no son IVA ni pago a cuenta.",
-    "«Pagado con»: si dice «préstamo del socio», el socio la pagó con su plata y Magna se la debe. Si dice «sin reintegro», la pagó Julio con su plata y Magna no se la devuelve. En los dos casos la factura es a nombre de Magna.",
+    "«Pagado con»: si dice «préstamo del socio», el socio la pagó con su plata y Magna se la debe. Si dice «sin reintegro», la pagó ese socio con su plata y Magna no se la devuelve. En los dos casos la factura es a nombre de Magna.",
     ...(completa ? ["«Origen»: a qué parte de Magna corresponde: cada obra de MICA, MICA · Estructura, Magna (propio) o Río Colorado."] : [])
   ] });
 

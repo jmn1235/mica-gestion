@@ -51,6 +51,7 @@ export function render(el) {
   </div>`;
   h += panelMensual(filas);
   h += panelOrigen();
+  h += panelQuien();
   h += panelCompensacion();
   h += panelPlanilla();
   el.innerHTML = h;
@@ -108,13 +109,25 @@ function panelOrigen() {
     </tbody></table></div>` : `<div class="vacio">No hay movimientos con IVA en esos meses.</div>`}</section>`;
 }
 
+/* ---------- compras propias de Magna, por quién las pagó ---------- */
+function panelQuien() {
+  const fs = MI.comprasMagnaPorQuien(est.desde, est.hasta);
+  if (!fs.length) return "";
+  const t = k => fs.reduce((x, f) => x + f[k], 0);
+  return `<section class="panel"><div class="panel-cab"><div><h2>Compras de Magna: quién aportó el crédito fiscal</h2><p class="panel-sub">De ${esc(mesLabel(est.desde))} a ${esc(mesLabel(est.hasta))}, en pesos. Las facturas a nombre de Magna (combustible, corralón y otras) según quién las pagó: un socio con su plata, sin reintegro, o la cuenta de Magna.</p></div></div>
+    <div class="tabla-env"><table class="tabla tabla-compacta"><thead><tr><th>Quién la pagó</th><th class="n">Facturas</th><th class="n ocultar-movil">Total</th><th class="n ocultar-movil">IVA</th><th class="n ocultar-movil">Percepciones de IVA</th><th class="n">Crédito fiscal aportado</th></tr></thead><tbody>
+      ${fs.map(f => `<tr><td><b>${esc(f.nombre)}</b>${f.sinReintegro ? `<small class="mute" style="display:block">Con su plata, sin reintegro</small>` : ""}</td><td class="n">${f.facturas}</td><td class="n ocultar-movil">${a(f.total)}</td><td class="n ocultar-movil">${a(f.iva)}</td><td class="n ocultar-movil">${a(f.percIVA)}</td><td class="n"><b>${a(f.credito)}</b></td></tr>`).join("")}
+      <tr class="total"><td>Total</td><td class="n">${t("facturas")}</td><td class="n ocultar-movil">${a(t("total"))}</td><td class="n ocultar-movil">${a(t("iva"))}</td><td class="n ocultar-movil">${a(t("percIVA"))}</td><td class="n">${a(t("credito"))}</td></tr>
+    </tbody></table></div></section>`;
+}
+
 /* ---------- compensación entre proyectos ---------- */
 function panelCompensacion() {
   const c = MI.compensacion(est.hasta);
   const pares = c.pares.filter(p => Math.abs(p.corresponde) > 1 || Math.abs(p.hecho) > 1);
   const ivRC = RC.hayDatos() ? RC.movimientosIvaRC() : [];
   const vendRC = ivRC.filter(m => m.tipo === "vendido").reduce((x, m) => x + (Number(m.ivaARS) || 0), 0);
-  return `<section class="panel"><div class="panel-cab"><div><h2>Compensación de IVA entre proyectos</h2><p class="panel-sub">Acumulado hasta ${esc(mesLabel(est.hasta))}. Magna paga un solo IVA: el proyecto que tiene IVA a pagar usa el crédito fiscal del que tiene saldo a favor, y le paga ese IVA. Se reparte en proporción. Magna (propio) no entra: esas compras las pagás vos sin reintegro.</p></div></div>
+  return `<section class="panel"><div class="panel-cab"><div><h2>Compensación de IVA entre proyectos</h2><p class="panel-sub">Acumulado hasta ${esc(mesLabel(est.hasta))}. Magna paga un solo IVA: el proyecto que tiene IVA a pagar usa el crédito fiscal del que tiene saldo a favor, y le paga ese IVA. Se reparte en proporción. Magna (propio) no entra: esas compras las pagan los socios sin reintegro.</p></div></div>
     ${pares.length ? `<div class="tabla-env"><table class="tabla tabla-compacta"><thead><tr><th>Paga</th><th>Recibe</th><th class="n">Corresponde</th><th class="n ocultar-movil">Registrado</th><th class="n">Falta</th><th><span class="sr">Acción</span></th></tr></thead><tbody>
       ${pares.map((p, i) => `<tr><td>${esc(p.deNombre)}</td><td>${esc(p.aNombre)}</td><td class="n">${a(p.corresponde)}</td><td class="n ocultar-movil">${a(p.hecho)}</td><td class="n"><b>${p.falta < -1 ? `<span class="tag">${esc(fmtARS(-p.falta))} de más</span>` : a(Math.max(0, p.falta))}</b></td>
         <td class="n">${p.falta > 1 ? `<button class="btn btn-sec btn-chico" data-comp="${i}">Registrar</button>` : ""}</td></tr>`).join("")}

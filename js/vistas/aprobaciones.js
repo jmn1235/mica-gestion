@@ -110,7 +110,7 @@ function vistaOperativo(el) {
   const rech = resueltas.filter(s => s.estado === "rechazada" && String(s.resueltoEl || "") > visto);
   if (op) { try { localStorage.setItem(LS_VISTO, new Date().toISOString()); } catch (e) { /* nada */ } }
   let h = cabecera("", op ? "Mis cargas" : "Cambios pendientes", op ? "Lo que propusiste y en qué estado está. Nada cuenta en los números hasta que Julio lo aprueba." : "Cambios propuestos por los operativos que esperan la aprobación de Julio.",
-    op && PER.proyectosPermitidos().length ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Proponer gasto</a>` : "");
+    op && PER.bolsillosPermitidos().length ? `<a class="btn btn-pri" href="#cargar">${ICONOS.cargar}Proponer gasto</a>` : "");
   if (op && rech.length) h += `<div class="aviso">${ICONOS.alerta}<div><b>Julio rechazó ${rech.length} pedido${rech.length === 1 ? "" : "s"}.</b> Mirá el motivo abajo y, si corresponde, corregilo y volvé a enviarlo.</div></div>`;
   h += `<section class="panel"><div class="panel-cab"><div><h2>Pendientes de aprobación</h2><p class="panel-sub">${pend.length ? `${pend.length} pedido${pend.length === 1 ? "" : "s"}.` : "No hay pedidos esperando."}</p></div></div>
     ${pend.length ? `<div class="sol-lista">${pend.map(s => tarjeta(s, { acciones: op ? `<button class="btn btn-sec btn-chico" data-corregir="${esc(s.id)}">Corregir</button><button class="btn btn-fant btn-chico" data-cancelar="${esc(s.id)}">Cancelar</button>` : `<button class="btn btn-fant btn-chico" data-ver="${esc(s.id)}">Ver</button>` })).join("")}</div>` : `<div class="vacio">${op ? "Cuando cargues un gasto o un avance, lo vas a ver acá hasta que Julio lo apruebe." : "Nada pendiente."}</div>`}

@@ -224,7 +224,7 @@ La IA **propone** y un socio **confirma**: nada se guarda sin revisar el formula
 ## Permisos y aprobaciones
 
 - **Administrador:** el titular de Magna (`TITULAR_MAGNA` en `js/config.js`, hoy Julio). Carga, modifica y configura todo.
-- **Operativo:** ve y exporta todo; propone gastos de obra (altas, cambios y bajas) y avance físico. Lo propuesto queda en la colección `solicitudes` y no se aplica hasta que el administrador lo aprueba en **Aprobaciones**.
+- **Operativo:** ve y exporta todo; propone gastos de obra (altas, cambios y bajas) y avance físico. Desde la versión 12, si se le habilita, también gastos de MICA · Estructura y de Magna (`config/permisos` → `usuarios.<socio>.bolsillos`). Lo propuesto queda en la colección `solicitudes` y no se aplica hasta que el administrador lo aprueba en **Aprobaciones**.
 - **Veedor:** ve y exporta todo, no modifica.
 - Los permisos se cambian en **Ajustes → Usuarios y permisos** y se guardan en `config/permisos`. Las reglas de Firestore los aplican en la base: aunque alguien manipule la pantalla, un operativo solo puede crear pedidos a su nombre y un veedor no puede escribir nada.
 
@@ -376,4 +376,13 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
 - **Categorías de Magna:** se suman «Combustible» y «Materiales de corralón» (una sola vez, `migracionV11`).
 - **Río Colorado v6.5** (archivo aparte): Factura C, CUIT del proveedor en cada gasto, percepciones (IIBB, IVA, Ganancias) e impuestos internos, en la carga manual, en la lectura de facturas con IA y en la exportación a Excel.
 - Las reglas de Firestore de MICA no cambian.
+
+## Novedades de la versión 12
+
+- **Los operativos pueden proponer gastos de MICA · Estructura y de Magna**, además de los de sus proyectos. Se habilita por persona en **Ajustes → Usuarios y permisos** («Además, gastos de»). Se guarda en `config/permisos` → `usuarios.<socio>.bolsillos` (`["ESTRUCTURA", "MAGNA"]`). Todo queda pendiente hasta que Julio lo aprueba. La Reserva fiscal sigue siendo solo del administrador. Funciones nuevas en `js/permisos.js`: `bolsilloPermitido`, `bolsillosPermitidos` y `BOLS_OPERATIVO`.
+- **Si un socio paga con su plata:**
+  - En Estructura, queda como préstamo suyo, igual que en las obras.
+  - En Magna, es «Lo pagó un socio con su plata, sin reintegro» (`fueraDeCaja`) y se guarda quién pagó (`pagoSinReintegro`; los anteriores a la v12 cuentan como de Julio, `quienPagoSinReintegro`). Ya no es solo del administrador.
+- **Quién aportó el crédito fiscal:** en Magna · IVA y contadora, una tabla con las compras de Magna por quién las pagó (`comprasMagnaPorQuien`). La planilla de la contadora dice «Jorge, con su plata (sin reintegro)», por ejemplo.
+- **Reglas de Firestore actualizadas** (`bolsilloPermitido`): hay que publicarlas en Firebase.
 

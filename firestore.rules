@@ -1,11 +1,12 @@
 rules_version = '2';
 
-// MICA · Gestión de proyectos — reglas de seguridad de Firestore (versión 7, con aprobaciones).
+// MICA · Gestión de proyectos — reglas de seguridad de Firestore (versión 12, con aprobaciones).
 //
 // - Leen todo las cuatro cuentas de Google de los socios, con el correo verificado.
 // - Escribe todo solo el administrador (Julio, titular de Magna).
 // - Los operativos solo crean pedidos (colección "solicitudes") a su nombre:
-//   gastos de obra y avance físico de los proyectos que tienen habilitados.
+//   gastos de obra y avance físico de los proyectos que tienen habilitados, y
+//   (desde la versión 12) gastos de MICA · Estructura y de Magna si se los habilitan.
 //   Nada se aplica hasta que el administrador lo aprueba desde la app.
 // - Los veedores solo leen.
 // El permiso de cada socio se guarda en config/permisos y lo cambia el administrador.
@@ -51,10 +52,18 @@ service cloud.firestore {
         && get(ruta).data.get('estado', '') != 'cerrado'
         && (ps == 'todos' || (ps is list && pid in ps));
     }
+    // Estructura o Magna, si el administrador se los habilitó al operativo.
+    function fijoPermitido(b) {
+      let bs = permiso().get('bolsillos', []);
+      return b in ['ESTRUCTURA', 'MAGNA'] && bs is list && b in bs;
+    }
+    function bolsilloPermitido(b) {
+      return b is string && (fijoPermitido(b) || proyectoPermitido(b));
+    }
     function datosValidos(d) {
       return d.datos is map && (d.coleccion == 'movimientos'
         ? d.datos.get('tipo', '') == 'egreso' && d.datos.get('clase', '') == 'gasto'
-            && d.datos.get('montoARS', 0) is number && proyectoPermitido(d.datos.get('bolsillo', ''))
+            && d.datos.get('montoARS', 0) is number && bolsilloPermitido(d.datos.get('bolsillo', ''))
         : d.datos.get('proyecto', '') is string && proyectoPermitido(d.datos.get('proyecto', ''))
             && d.docId == d.datos.get('proyecto', '') + '__' + d.datos.get('mes', ''));
     }
@@ -63,7 +72,7 @@ service cloud.firestore {
       let ruta = /databases/$(database)/documents/$(d.coleccion)/$(d.docId);
       return exists(ruta) && (d.coleccion == 'movimientos'
         ? get(ruta).data.get('tipo', '') == 'egreso' && get(ruta).data.get('clase', '') == 'gasto'
-            && proyectoPermitido(get(ruta).data.get('bolsillo', ''))
+            && bolsilloPermitido(get(ruta).data.get('bolsillo', ''))
         : proyectoPermitido(get(ruta).data.get('proyecto', '')));
     }
     function solicitudValida(d) {

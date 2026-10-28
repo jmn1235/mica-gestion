@@ -146,12 +146,14 @@ function revisarFactura(d, bol, file, preset = {}) {
   const admin = PER.esAdmin();
   const opciones = opcionesImputacion(bol);
   const prov = proveedorConocido(d.proveedor, d.cuit);
-  const hab = admin && prov && prov.habitual && prov.habitual.bolsillo === "MAGNA" ? prov.habitual : null;
+  const puedeMagna = PER.bolsilloPermitido("MAGNA");
+  const hab = puedeMagna && prov && prov.habitual && prov.habitual.bolsillo === "MAGNA" ? prov.habitual : null;
   const catComb = M.categoriasDe("MAGNA").find(c => /combustible/i.test(c));
-  // Combustible o proveedor que siempre va a Magna: se propone cargarlo ahí, pagado por Julio.
-  const sugerirMagna = admin && bol !== "MAGNA" && (hab || (d.esCombustible && catComb));
+  // Combustible o proveedor que siempre va a Magna: se propone cargarlo ahí, pagado por quien carga, sin reintegro.
+  const sugerirMagna = puedeMagna && bol !== "MAGNA" && (hab || (d.esCombustible && catComb));
   const impMagna = bol === "MAGNA" ? (preset.imputacion || (hab && hab.imputacion) || (d.esCombustible && catComb ? "c:" + catComb : "")) : "";
-  const fuera0 = bol === "MAGNA" && admin && (preset.fueraDeCaja != null ? preset.fueraDeCaja : hab ? !!hab.fueraDeCaja : !!d.esCombustible);
+  const fuera0 = bol === "MAGNA" && (preset.fueraDeCaja != null ? preset.fueraDeCaja : hab ? !!hab.fueraDeCaja : !!d.esCombustible);
+  const pagoSR0 = fuera0 ? (preset.pagoSinReintegro || app.usuario.socio) : "";
   const esProy = !!M.proyecto(bol);
   const total0 = Number(d.total) || 0;
   const letra = String(d.letra || "").toUpperCase();
@@ -185,7 +187,7 @@ function revisarFactura(d, bol, file, preset = {}) {
   const md = modal("Factura leída con IA", `<form class="form abierto-a-todos" id="fr" novalidate>
     <p class="mute" style="margin:0">Revisá lo que leyó la IA antes de guardar. Se carga en <b>${esc(M.nombreBolsillo(bol))}</b>.</p>
     ${otroComprador ? `<div class="aviso" style="margin:0">${ICONOS.alerta}<div><b>La factura no es a nombre de Magna.</b> El CUIT del comprador es ${esc(d.cuitComprador)} y el de Magna es ${esc(datosFiscales().cuit)}. Su IVA no se puede computar como crédito fiscal.</div></div>` : ""}
-    ${sugerirMagna ? `<div class="aviso aviso-info" style="margin:0">${ICONOS.alerta}<div><b>${hab ? "Este proveedor suele ir a Magna · Julio." : "Parece una carga de combustible."}</b> Si es de Magna y no de ${esc(M.nombreBolsillo(bol))}, cargala en Magna · Julio${catComb && !hab ? `, categoría ${esc(catComb)},` : ""} como pagada por vos sin reintegro.
+    ${sugerirMagna ? `<div class="aviso aviso-info" style="margin:0">${ICONOS.alerta}<div><b>${hab ? "Este proveedor suele ir a Magna · Julio." : "Parece una carga de combustible."}</b> Si es de Magna y no de ${esc(M.nombreBolsillo(bol))}, cargala en Magna · Julio${catComb && !hab ? `, categoría ${esc(catComb)},` : ""} como pagada por vos, sin reintegro.
       <div style="margin-top:8px"><button type="button" class="btn btn-sec btn-chico" id="r-a-magna">Cargar en Magna · Julio</button></div></div></div>` : ""}
     <div class="fila fila-movil-2">
       <div class="campo"><label for="r-fecha">Fecha</label><input id="r-fecha" type="date" value="${esc(fechaOk)}"></div>
@@ -205,7 +207,7 @@ function revisarFactura(d, bol, file, preset = {}) {
       <div class="campo"><label for="r-percGan">Percepción Ganancias</label><input id="r-percGan" inputmode="decimal" value="${v(perc0.percGan)}" placeholder="0"></div>
       <div class="campo"><label for="r-otros">Impuestos internos y otros tributos</label><input id="r-otros" inputmode="decimal" value="${v(otros0)}" placeholder="0"></div>
       <div class="campo" data-iva><label for="r-nograv">No gravado o exento</label><input id="r-nograv" inputmode="decimal" value="${v(noGrav0)}" placeholder="0"></div>
-      ${bol === "MAGNA" && admin ? `<div class="campo"><label for="r-fuera">Lo pagó</label><select id="r-fuera"><option value="">La cuenta de Magna</option><option value="1"${fuera0 ? " selected" : ""}>Julio, con su plata, sin reintegro</option></select></div>` : ""}
+      ${bol === "MAGNA" ? `<div class="campo"><label for="r-fuera">Lo pagó</label><select id="r-fuera"><option value="">La cuenta de Magna</option>${SOCIOS.map(s => `<option value="${s.id}"${pagoSR0 === s.id ? " selected" : ""}>${esc(s.nombre)}, con su plata, sin reintegro</option>`).join("")}</select></div>` : ""}
       ${admitePago ? `<div class="campo"><label for="r-pagado">Lo pagó</label><select id="r-pagado"><option value="">La cuenta de Magna</option>${SOCIOS.map(s => `<option value="${s.id}">${esc(s.nombre)} (queda como préstamo)</option>`).join("")}</select></div>` : ""}
     </div>
     <div class="hint" id="r-control" style="margin:0"></div>
@@ -270,21 +272,22 @@ function revisarFactura(d, bol, file, preset = {}) {
   };
   q("fecha").addEventListener("change", buscarMep);
   const bm = q("a-magna");
-  if (bm) bm.addEventListener("click", () => { cerrarModal(); revisarFactura(Object.assign({}, d, { renglones: leerR().map(r => ({ concepto: r.concepto, monto: r.monto })) }), "MAGNA", file, { fueraDeCaja: true, imputacion: hab ? hab.imputacion : "c:" + catComb }); });
+  if (bm) bm.addEventListener("click", () => { cerrarModal(); revisarFactura(Object.assign({}, d, { renglones: leerR().map(r => ({ concepto: r.concepto, monto: r.monto })) }), "MAGNA", file, { fueraDeCaja: true, pagoSinReintegro: app.usuario.socio, imputacion: hab ? hab.imputacion : "c:" + catComb }); });
   buscarMep(); actualizar();
 
   const datosComunes = () => ({
     fecha: q("fecha").value, proveedor: q("prov").value.trim(), comprobante: q("comp").value.trim(), fiscal: q("fiscal").value,
     alicuota: q("alic").value === "varias" ? "varias" : (Number(q("alic").value) || 21), cotizacion: parseMonto(q("mep").value) || 0, cotizacionFuente: fuente,
     pagadoPor: q("pagado") ? q("pagado").value : "",
-    fueraDeCaja: !!(q("fuera") && q("fuera").value)
+    fueraDeCaja: !!(q("fuera") && q("fuera").value),
+    pagoSinReintegro: q("fuera") ? q("fuera").value : ""
   });
   q("form").addEventListener("click", () => {
     const c = datosComunes(), r = leerR()[0];
     const iva = c.fiscal === "A" ? (parseMonto(q("iva").value) || 0) : 0;
     prefill = Object.assign({ tipo: "egreso", clase: "gasto", bolsillo: bol, fecha: c.fecha, proveedor: c.proveedor, comprobante: c.comprobante, fiscal: c.fiscal, alicuota: c.alicuota,
       montoARS: r.monto || parseMonto(q("total").value) || 0, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, subcategoria: r.subcategoria,
-      ivaARS: iva || undefined, pagadoPor: c.pagadoPor, fueraDeCaja: c.fueraDeCaja, recuperable: bol === "MAGNA" && !c.fueraDeCaja,
+      ivaARS: iva || undefined, pagadoPor: c.pagadoPor, fueraDeCaja: c.fueraDeCaja, pagoSinReintegro: c.pagoSinReintegro, recuperable: bol === "MAGNA" && !c.fueraDeCaja,
       cotizacion: c.cotizacion || undefined, cotizacionFuente: c.cotizacion ? c.cotizacionFuente : undefined, leidoConIA: true }, leerPerc(), leerOtros());
     cerrarModal(); app.ir("cargar");
   });
@@ -317,7 +320,7 @@ function revisarFactura(d, bol, file, preset = {}) {
         montoARS: Math.round(r.monto * 100) / 100, cotizacion: c.cotizacion, cotizacionFuente: c.cotizacionFuente, montoUSD: Math.round(r.monto / c.cotizacion * 100) / 100,
         proveedor: c.proveedor, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, subcategoria: r.subcategoria, fiscal: c.fiscal,
         alicuota: ivaR > 0 ? c.alicuota : 0, ivaARS: ivaR, percIIBB: parte(pc.percIIBB, r), percIVA: parte(pc.percIVA, r), percGan: parte(pc.percGan, r),
-        otrosTribARS: parte(ot.otrosTribARS, r), noGravadoARS: parte(ot.noGravadoARS, r), fueraDeCaja: c.fueraDeCaja,
+        otrosTribARS: parte(ot.otrosTribARS, r), noGravadoARS: parte(ot.noGravadoARS, r), fueraDeCaja: c.fueraDeCaja, pagoSinReintegro: c.pagoSinReintegro,
         comprobante: c.comprobante, recuperable: bol === "MAGNA" && !c.fueraDeCaja, pagadoPor: c.pagadoPor || "",
         socio: "", tasa: null, notas: "Leído con IA", leidoConIA: true, creadoPor: app.usuario.socio, creadoEl: ahora
       };
