@@ -50,7 +50,8 @@ export const CLASES = {
     { id: "devaporte", nombre: "Devolución de aporte a un socio" },
     { id: "distribucion", nombre: "Distribución a un socio" },
     { id: "honorario", nombre: "Pago de honorarios a un socio" },
-    { id: "retiro", nombre: "Retiro del titular de Magna" }
+    { id: "retiro", nombre: "Retiro del titular de Magna" },
+    { id: "compiva", nombre: "Compensación de IVA a otro proyecto de Magna" }
   ],
   ingreso: [
     { id: "cobro", nombre: "Cobro de factura" },
@@ -58,6 +59,7 @@ export const CLASES = {
     { id: "aporte", nombre: "Aporte de un socio" },
     { id: "prestamo", nombre: "Préstamo de un socio" },
     { id: "inicial", nombre: "Saldo inicial" },
+    { id: "compiva", nombre: "Compensación de IVA de otro proyecto de Magna" },
     { id: "otro", nombre: "Otro ingreso" }
   ],
   pase: [
@@ -70,6 +72,7 @@ export const CLASES = {
     { id: "honorario", nombre: "Pago de honorarios a Julio" },
     { id: "devaporte", nombre: "Devolución de aporte" },
     { id: "estructura", nombre: "Parte de estructura de MICA" },
+    { id: "compiva", nombre: "Compensación de IVA entre proyectos" },
     { id: "otro", nombre: "Otro pase" }
   ]
 };
@@ -114,6 +117,14 @@ export const PERCEPCIONES = [
   { k: "percGan", nombre: "Percepción de Ganancias" }
 ];
 export const percepciones = m => (Number(m.percIIBB) || 0) + (Number(m.percIVA) || 0) + (Number(m.percGan) || 0);
+/* Impuestos internos y otros tributos de la factura (por ejemplo, el impuesto a los combustibles):
+   son costo, pero el libro de IVA compras los pide aparte del neto gravado. */
+export const otrosTributos = m => Number(m.otrosTribARS) || 0;
+/* Importe no gravado o exento de una factura A (sin IVA). */
+export const noGravado = m => Number(m.noGravadoARS) || 0;
+/* Gasto que Julio pagó con su plata y Magna no le devuelve: cuenta para el IVA de Magna,
+   pero no pasa por la cuenta del banco (no toca saldos ni paga impuesto al cheque). */
+export const fueraDeCaja = m => !!m.fueraDeCaja;
 /* Tasa anual en dólares de los préstamos que nacen de gastos pagados por un socio. */
 export const tasaGastosSocios = () => Number((S.config.general || {}).tasaGastosSocios) || 0;
 /* Bolsillos donde un gasto pagado por un socio puede quedar como préstamo suyo. */
@@ -160,12 +171,15 @@ export const netoArs = m => (Number(m.montoARS) || 0) + (Number(m.retencionesARS
 export const netoUsd = m => (m.cotizacion > 0 ? netoArs(m) / m.cotizacion : 0);
 /* Monto neto de IVA en la moneda del contrato (pesos nominales o dólares MEP). */
 export const netoEn = (m, moneda) => (moneda === "ARS" ? netoArs(m) : netoUsd(m));
+/* Neto gravado de una compra: el neto sin los impuestos internos ni lo no gravado. */
+export const netoGravadoArs = m => netoArs(m) - otrosTributos(m) - noGravado(m);
 export const esCosto = m => m.tipo === "egreso" && m.clase === "gasto";
 export const esVenta = m => m.tipo === "ingreso" && (m.clase === "cobro" || m.clase === "anticipo");
 export const mesDe = m => String(m.fecha || "").slice(0, 7);
 
 /* Efecto de un movimiento sobre un conjunto de bolsillos: +1 entra, −1 sale, 0 no lo toca o es interno. */
 export function signo(m, conjunto) {
+  if (m.fueraDeCaja) return 0;
   const en = id => conjunto.has(id);
   if (m.tipo === "ingreso") return en(m.bolsillo) ? 1 : 0;
   if (m.tipo === "egreso") return en(m.bolsillo) ? -1 : 0;
@@ -202,7 +216,7 @@ export const saldoBolsillo = id => saldoDe(new Set([id]));
 export function saldoCuenta(cuentaId) {
   let ars = 0;
   S.movimientos.forEach(m => {
-    if ((m.cuenta || "c_magna") !== cuentaId) return;
+    if ((m.cuenta || "c_magna") !== cuentaId || m.fueraDeCaja) return;
     if (m.tipo === "ingreso") ars += Number(m.montoARS) || 0;
     if (m.tipo === "egreso") ars -= Number(m.montoARS) || 0;
   });
@@ -431,7 +445,7 @@ export function impuestosDe(p, r) {
       if (m.cotizacion > 0) { x.percGanUsd += pg / m.cotizacion; x.percIibbUsd += pi / m.cotizacion; }
     }
     // Un gasto pagado por un socio y su préstamo no pasan por el banco: no generan impuesto al cheque.
-    if ((m.tipo === "ingreso" || m.tipo === "egreso") && esBanco(m) && !m.pagadoPor && !m.gastoVinculado) {
+    if ((m.tipo === "ingreso" || m.tipo === "egreso") && esBanco(m) && !m.pagadoPor && !m.gastoVinculado && !m.fueraDeCaja) {
       const pct = (m.tipo === "ingreso" ? t.chequeCredito : t.chequeDebito) / 100;
       x.chequeArs += (Number(m.montoARS) || 0) * pct;
       x.chequeUsd += usd(m) * pct;

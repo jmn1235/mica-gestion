@@ -8,7 +8,7 @@ import { app } from "../contexto.js";
 import { TITULAR_MAGNA, SOCIOS } from "../config.js";
 import * as M from "../modelo.js";
 import { cotizacionMEP } from "../mep.js";
-import { tomarPrefill, barraIAHtml, enlazarBarraIA } from "./cargarIA.js";
+import { tomarPrefill, barraIAHtml, enlazarBarraIA, recordarHabitual } from "./cargarIA.js";
 import * as PER from "../permisos.js";
 import * as GS from "../gastoSocio.js";
 import { $, $$, esc, fmtUSD, fmtARS, fmtFecha, fmtFechaHora, fmtMiles, parseMonto, hoyISO, toast, confirmar2, cabecera, ICONOS } from "../ui.js";
@@ -169,12 +169,18 @@ export function render(el, params) {
       <div class="campo" data-ver="percIva"><label for="f-percIVA">Percepción de IVA <span class="opc">(si figura)</span></label><input id="f-percIVA" inputmode="decimal" autocomplete="off" placeholder="0"></div>
       <div class="campo"><label for="f-percGan">Percepción de Ganancias <span class="opc">(si figura)</span></label><input id="f-percGan" inputmode="decimal" autocomplete="off" placeholder="0"></div>
     </div>
+    <div class="fila" data-ver="perc">
+      <div class="campo"><label for="f-otrosTrib">Impuestos internos y otros tributos <span class="opc">(si figura)</span></label><input id="f-otrosTrib" inputmode="decimal" autocomplete="off" placeholder="0"><div class="hint">En el combustible: el impuesto a los combustibles. Es costo, no es IVA.</div></div>
+      <div class="campo" data-ver="percIva"><label for="f-noGravado">No gravado o exento <span class="opc">(si figura)</span></label><input id="f-noGravado" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+    </div>
     <div class="desglose" id="f-desglose" data-ver="desglose"></div>
 
     <div class="bloque-socio" data-ver="pagosocio">
       <label class="check"><input type="checkbox" id="f-pagosocio"><span><b>Lo pagó un socio con su plata</b><br><span class="mute">El gasto cuenta como costo y la app registra un préstamo de ese socio al <span id="f-pago-bol">este bolsillo</span> por el mismo monto${M.tasaGastosSocios() ? `, al ${String(M.tasaGastosSocios()).replace(".", ",")}% anual en dólares` : ", sin interés"}.</span></span></label>
       <div class="campo" id="c-pagadopor"><label for="f-pagadopor">Socio que lo pagó</label><select id="f-pagadopor"><option value="">Elegí el socio</option>${SOCIOS.map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join("")}</select></div>
     </div>
+
+    <label class="check" data-ver="fueradecaja"><input type="checkbox" id="f-fueradecaja"><span><b>Lo pagué yo con mi plata, sin reintegro</b><br><span class="mute">La factura es de Magna y su IVA cuenta, pero no sale de la cuenta del banco ni queda a tu favor.</span></span></label>
 
     <label class="check" data-ver="recuperable"><input type="checkbox" id="f-recuperable"><span><b>Gasto recuperable</b><br><span class="mute">Lo paga Magna por ser la razón social de MICA (contadora de la SRL, CASEMICA…). Queda a favor de Julio y se le reintegra.</span></span></label>
 
@@ -267,7 +273,8 @@ export function render(el, params) {
     const ver = {
       pase: tipo === "pase", gasto: esGasto, socio: M.pideSocio(tipo, clase), tasa: M.pideTasa(tipo, clase),
       tipocosto: esGasto && M.esBolsilloProyecto(bol), comprobante: esGasto || esVentaC, fiscal: esGasto,
-      iva: (esGasto && fiscal === "A") || esVentaC, recuperable: esGasto && bol === "MAGNA",
+      iva: (esGasto && fiscal === "A") || esVentaC, recuperable: esGasto && bol === "MAGNA" && !q("fueradecaja").checked,
+      fueradecaja: esGasto && bol === "MAGNA" && admin,
       perc: esGasto && (fiscal === "A" || fiscal === "B"), percIva: esGasto && fiscal === "A",
       desglose: esGasto || esVentaC, pagosocio: esGasto && M.admitePrestamoSocio(bol)
     };
@@ -278,7 +285,7 @@ export function render(el, params) {
     $("#c-bolsillo", f).classList.toggle("campo-ancho-movil", tipo !== "pase");
     $("#l-bolsillo", f).textContent = tipo === "pase" ? "Sale de" : tipo === "ingreso" ? "Entra a" : esGasto ? "Asignar costo a" : "Sale de";
     $("#l-monto", f).textContent = esGasto ? "Monto total en pesos" : esVentaC ? "Monto cobrado en pesos" : "Monto en pesos";
-    q("monto-hint").textContent = esGasto ? (fiscal === "A" || fiscal === "B" ? "Total de la factura: IVA y percepciones incluidos." : "Lo que se pagó, total.") : esVentaC ? "Con IVA incluido." : "";
+    q("monto-hint").textContent = esGasto ? (fiscal === "A" || fiscal === "B" ? "Total de la factura: IVA, percepciones e impuestos internos incluidos." : "Lo que se pagó, total.") : esVentaC ? "Con IVA incluido." : "";
     $("#f-pago-bol", f).textContent = M.esBolsilloProyecto(bol) ? "proyecto" : "bolsillo de Estructura";
     $("#c-pagadopor", f).hidden = !q("pagosocio").checked;
     const hc = $("#hint-cert", f);
@@ -299,15 +306,23 @@ export function render(el, params) {
     if (!q("percIVA").closest("[data-ver]").hidden) o.percIVA = parseMonto(q("percIVA").value) || 0;
     return o;
   }
+  /* Impuestos internos y no gravado: dentro del total, sin IVA. */
+  function leerOtros() {
+    const o = { otrosTribARS: 0, noGravadoARS: 0 };
+    if (q("otrosTrib").closest("[data-ver]").hidden) return o;
+    o.otrosTribARS = parseMonto(q("otrosTrib").value) || 0;
+    if (!q("noGravado").closest("[data-ver]").hidden) o.noGravadoARS = parseMonto(q("noGravado").value) || 0;
+    return o;
+  }
   function calcularIva() {
     const clase = q("clase").value;
     const esVentaC = tipo === "ingreso" && (clase === "cobro" || clase === "anticipo");
     const aplica = (tipo === "egreso" && clase === "gasto" && fiscal === "A") || esVentaC;
     $("#l-iva", f).textContent = varias() ? "IVA total de la factura" : "IVA de la factura";
     if (!ivaManual && !varias()) {
-      // El IVA se calcula sobre el total sin percepciones (las percepciones no llevan IVA).
-      const pc = leerPerc();
-      const base = (parseMonto(q("monto").value) || 0) - pc.percIIBB - pc.percIVA - pc.percGan;
+      // El IVA se calcula sobre el total sin percepciones, impuestos internos ni lo no gravado (no llevan IVA).
+      const pc = leerPerc(), ot = leerOtros();
+      const base = (parseMonto(q("monto").value) || 0) - pc.percIIBB - pc.percIVA - pc.percGan - ot.otrosTribARS - ot.noGravadoARS;
       const a = Number(q("alicuota").value) || 0;
       const iva = aplica && a > 0 && base > 0 ? base - base / (1 + a / 100) : 0;
       q("iva").value = iva ? fmtMiles(Math.round(iva * 100) / 100) : "";
@@ -319,9 +334,10 @@ export function render(el, params) {
     const monto = parseMonto(q("monto").value) || 0;
     const cot = parseMonto(q("cot").value) || 0;
     const iva = q("iva").closest("[data-ver]").hidden ? 0 : (parseMonto(q("iva").value) || 0);
-    const pc = leerPerc();
+    const pc = leerPerc(), ot = leerOtros();
     const perc = pc.percIIBB + pc.percIVA + pc.percGan;
     const neto = monto - iva - perc;
+    const gravado = neto - ot.otrosTribARS - ot.noGravadoARS;
     const eq = q("equiv");
     if (monto > 0 && cot > 0) {
       eq.querySelector("b").textContent = fmtUSD(monto / cot, 2);
@@ -333,7 +349,7 @@ export function render(el, params) {
     const dg = q("desglose");
     if (!dg.hidden) {
       dg.innerHTML = monto > 0
-        ? `<span>Neto <b>${fmtARS(neto)}</b></span><span>IVA <b>${fmtARS(iva)}</b></span>${perc > 0 ? `<span>Percepciones <b>${fmtARS(perc)}</b></span>` : ""}<span class="desglose-total">Total <b>${fmtARS(monto)}</b></span>${neto < 0 ? `<span class="desglose-error">El IVA y las percepciones superan el total</span>` : ""}`
+        ? `<span>${ot.otrosTribARS || ot.noGravadoARS ? "Neto gravado" : "Neto"} <b>${fmtARS(gravado)}</b></span>${ot.noGravadoARS ? `<span>No gravado <b>${fmtARS(ot.noGravadoARS)}</b></span>` : ""}<span>IVA <b>${fmtARS(iva)}</b></span>${ot.otrosTribARS ? `<span>Imp. internos <b>${fmtARS(ot.otrosTribARS)}</b></span>` : ""}${perc > 0 ? `<span>Percepciones <b>${fmtARS(perc)}</b></span>` : ""}<span class="desglose-total">Total <b>${fmtARS(monto)}</b></span>${gravado < 0 ? `<span class="desglose-error">El IVA, las percepciones y los impuestos internos superan el total</span>` : ""}`
         : `<span class="mute">Cargá el total para ver el neto, el IVA y las percepciones.</span>`;
     }
   }
@@ -374,6 +390,9 @@ export function render(el, params) {
   q("tipocosto").value = st.tipoCosto || "";
   opcionesSubcat(st.subcategoria || "");
   ["percIIBB", "percIVA", "percGan"].forEach(k => { q(k).value = Number(st[k]) ? fmtMiles(st[k]) : ""; });
+  q("otrosTrib").value = Number(st.otrosTribARS) ? fmtMiles(st.otrosTribARS) : "";
+  q("noGravado").value = Number(st.noGravadoARS) ? fmtMiles(st.noGravadoARS) : "";
+  q("fueradecaja").checked = !!st.fueraDeCaja;
   q("pagosocio").checked = !!st.pagadoPor || (!admin && !m0 && !solPrev && !!(pre && pre.pagadoPor));
   q("pagadopor").value = st.pagadoPor || (!admin ? app.usuario.socio : "");
   q("alicuota").value = String(st.alicuota != null && st.alicuota !== "" ? st.alicuota : 21);
@@ -383,7 +402,7 @@ export function render(el, params) {
   if ((m0 || solPrev || (pre && pre.ivaARS)) && st.ivaARS) {
     q("iva").value = fmtMiles(st.ivaARS);
     const a = Number(st.alicuota) || 0;
-    const base = (Number(st.montoARS) || 0) - M.percepciones(st);
+    const base = (Number(st.montoARS) || 0) - M.percepciones(st) - M.otrosTributos(st) - M.noGravado(st);
     const calc = a ? base - base / (1 + a / 100) : 0;
     ivaManual = st.alicuota !== "varias" && Math.abs(calc - st.ivaARS) > 1;
   }
@@ -411,7 +430,7 @@ export function render(el, params) {
   q("bolsillo").addEventListener("change", () => {
     bolManual = true;
     opcionesImputacion();
-    if (q("bolsillo").value === "MAGNA" && !m0) q("recuperable").checked = true;
+    if (q("bolsillo").value === "MAGNA" && !m0) q("recuperable").checked = !q("fueradecaja").checked;
     actualizar();
   });
   q("destino").addEventListener("change", () => { bolManual = true; });
@@ -421,10 +440,11 @@ export function render(el, params) {
   q("monto").addEventListener("input", calcularIva);
   q("alicuota").addEventListener("change", () => { ivaManual = false; if (varias()) { q("iva").focus(); q("iva").select(); } calcularIva(); });
   q("iva").addEventListener("input", () => { ivaManual = true; equivalencia(); });
-  ["percIIBB", "percIVA", "percGan"].forEach(k => q(k).addEventListener("input", calcularIva));
+  ["percIIBB", "percIVA", "percGan", "otrosTrib", "noGravado"].forEach(k => q(k).addEventListener("input", calcularIva));
+  q("fueradecaja").addEventListener("change", () => { if (q("fueradecaja").checked) q("recuperable").checked = false; actualizar(); });
   q("tipocosto").addEventListener("change", () => opcionesSubcat(""));
   q("pagosocio").addEventListener("change", () => { if (q("pagosocio").checked && !q("pagadopor").value && !admin) q("pagadopor").value = app.usuario.socio; actualizar(); });
-  ["monto", "cot", "iva", "percIIBB", "percIVA", "percGan"].forEach(id => q(id).addEventListener("blur", () => { const v = parseMonto(q(id).value); if (!isNaN(v) && q(id).value.trim()) q(id).value = fmtMiles(v); }));
+  ["monto", "cot", "iva", "percIIBB", "percIVA", "percGan", "otrosTrib", "noGravado"].forEach(id => q(id).addEventListener("blur", () => { const v = parseMonto(q(id).value); if (!isNaN(v) && q(id).value.trim()) q(id).value = fmtMiles(v); }));
   // Enter en un campo no envía el formulario por accidente, salvo en el botón.
   f.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") { e.preventDefault(); } });
 
@@ -464,6 +484,8 @@ export function render(el, params) {
     const iva = (esGasto && fiscal === "A") || esVentaC ? (parseMonto(q("iva").value) || 0) : 0;
     const pc = esGasto ? leerPerc() : { percIIBB: 0, percIVA: 0, percGan: 0 };
     const perc = pc.percIIBB + pc.percIVA + pc.percGan;
+    const ot = esGasto ? leerOtros() : { otrosTribARS: 0, noGravadoARS: 0 };
+    const fuera = esGasto && bol === "MAGNA" && admin && q("fueradecaja").checked;
     const pagado = esGasto && M.admitePrestamoSocio(bol) && q("pagosocio").checked ? q("pagadopor").value : "";
     if (!fecha) return marcarError("fecha", "Falta la fecha.");
     if (!bol) return marcarError("bolsillo", "Elegí el bolsillo.");
@@ -474,6 +496,8 @@ export function render(el, params) {
     if (((esGasto && fiscal === "A") || esVentaC) && varias() && !(iva > 0)) return marcarError("iva", "Con varias alícuotas, cargá el IVA total de la factura.");
     if (Object.values(pc).some(v => v < 0)) return marcarError("percIIBB", "Las percepciones no pueden ser negativas.");
     if (iva + perc >= monto) return marcarError("percIIBB", "El IVA más las percepciones tiene que ser menor que el total.");
+    if (ot.otrosTribARS < 0 || ot.noGravadoARS < 0) return marcarError("otrosTrib", "Los impuestos internos y lo no gravado no pueden ser negativos.");
+    if (iva + perc + ot.otrosTribARS + ot.noGravadoARS >= monto) return marcarError("otrosTrib", "El IVA, las percepciones, los impuestos internos y lo no gravado tienen que sumar menos que el total.");
     if (esGasto && !q("proveedor").value.trim() && !q("concepto").value.trim()) return marcarError("concepto", "Poné el proveedor o el concepto.");
     if (esGasto && !q("imp").value) return marcarError("imp", M.esBolsilloProyecto(bol) ? "Elegí a qué ítem, rubro o general se imputa." : "Elegí la categoría.");
     if (esGasto && M.esBolsilloProyecto(bol) && !q("tipocosto").value) return marcarError("tipocosto", "Elegí la categoría del costo (mano de obra, materiales…).");
@@ -498,9 +522,11 @@ export function render(el, params) {
       alicuota: iva > 0 ? (varias() ? "varias" : Number(q("alicuota").value)) : 0,
       ivaARS: Math.round(iva * 100) / 100,
       percIIBB: Math.round(pc.percIIBB * 100) / 100, percIVA: Math.round(pc.percIVA * 100) / 100, percGan: Math.round(pc.percGan * 100) / 100,
+      otrosTribARS: Math.round(ot.otrosTribARS * 100) / 100, noGravadoARS: Math.round(ot.noGravadoARS * 100) / 100,
+      fueraDeCaja: fuera,
       pagadoPor: pagado,
       comprobante: esGasto || esVentaC ? q("comprobante").value.trim() : "",
-      recuperable: esGasto && bol === "MAGNA" ? q("recuperable").checked : false,
+      recuperable: esGasto && bol === "MAGNA" && !fuera ? q("recuperable").checked : false,
       socio: M.pideSocio(tipo, clase) ? q("socio").value : "",
       tasa
     });
@@ -518,7 +544,7 @@ export function render(el, params) {
       toast((m0 ? "Cambio enviado" : sol0 ? "Pedido corregido" : "Gasto enviado") + " para aprobación · " + `${fmtARS(d.montoARS)} · ${fmtUSD(d.montoUSD)}`);
       sucio = false;
       if (otro) {
-        ["monto", "concepto", "comprobante", "iva", "notas", "percIIBB", "percIVA", "percGan"].forEach(id => { q(id).value = ""; });
+        ["monto", "concepto", "comprobante", "iva", "notas", "percIIBB", "percIVA", "percGan", "otrosTrib", "noGravado"].forEach(id => { q(id).value = ""; });
         ivaManual = false; equivalencia(); q("monto").focus(); window.scrollTo({ top: 0, behavior: "smooth" });
       } else app.ir("aprobaciones");
       return;
@@ -534,12 +560,13 @@ export function render(el, params) {
     if (d.proveedor && !S.proveedores.some(p => p.nombre.toLowerCase() === d.proveedor.toLowerCase())) {
       guardar("proveedores", { nombre: d.proveedor, cuit: "", rubro: "", notas: "", creadoPor: app.usuario.socio });
     }
+    if (esGasto && bol === "MAGNA") recordarHabitual(d);
     const resumen = `${fmtARS(d.montoARS)} · ${fmtUSD(d.montoUSD)}`;
     toast((m0 ? "Cambios guardados" : esGasto ? "Gasto guardado" : tipo === "pase" ? "Pase guardado" : "Ingreso guardado") + " · " + resumen);
     sucio = false;
     if (otro) {
       $("#dl-prov", f).innerHTML = S.proveedores.concat(d.proveedor ? [{ nombre: d.proveedor }] : []).map(p => p.nombre).filter((v, i, a) => a.indexOf(v) === i).sort().map(n => `<option value="${esc(n)}">`).join("");
-      ["monto", "concepto", "comprobante", "iva", "notas", "percIIBB", "percIVA", "percGan"].forEach(id => { q(id).value = ""; });
+      ["monto", "concepto", "comprobante", "iva", "notas", "percIIBB", "percIVA", "percGan", "otrosTrib", "noGravado"].forEach(id => { q(id).value = ""; });
       ivaManual = false;
       equivalencia();
       q("monto").focus();

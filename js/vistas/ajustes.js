@@ -472,6 +472,7 @@ function datos(cont) {
           <div class="campo"><label for="d-hasta">Hasta</label><input type="month" id="d-hasta" value="${mesPrevio()}"></div>
         </div>
         <div class="form-pie"><button class="btn btn-pri" type="submit" id="d-contadora">${ICONOS.descargar}Descargar planilla</button></div>
+        ${PER.esAdmin() ? `<p class="panel-sub" style="margin:0">Esta es la de MICA y Magna. La planilla completa, con Río Colorado, está en <a href="#magnaiva">Magna · IVA y contadora</a>.</p>` : ""}
       </form></section>
     <section class="panel"><div class="panel-cab"><div><h2>Todo en Excel</h2><p class="panel-sub">Movimientos, proyectos, ítems con costos cotizados, avance físico, certificados y cobranza, impuestos, socios, préstamos, honorarios, proveedores, saldos por bolsillo, cierres, aprobaciones y base de costos, con formato y una hoja que explica cada una.</p></div></div>
       <button class="btn btn-sec" id="d-excel">${ICONOS.descargar}Descargar Excel completo</button>
@@ -570,7 +571,7 @@ async function exportarExcel() {
     Proveedor: m.proveedor || "", Concepto: m.concepto || "", "Imputación": M.nombreImputacion(m), "Categoría": M.nombreCategoria(m.tipoCosto), "Subcategoría": m.subcategoria || "",
     Comprobante: ({ A: "Factura A", B: "Factura B o C", S: "Sueldo, cargas o tasa", X: "Sin factura" })[m.fiscal] || "", "N° comprobante": m.comprobante || "",
     "Monto ARS": r2(m.montoARS), "Alícuota IVA": m.ivaARS ? M.nombreAlicuota(m.alicuota) : "", "IVA ARS": r2(m.ivaARS),
-    "Percepción IIBB ARS": r2(m.percIIBB), "Percepción IVA ARS": r2(m.percIVA), "Percepción Ganancias ARS": r2(m.percGan), "Neto ARS": r2(M.netoArs(m)), "Dólar MEP": r2(m.cotizacion), "Monto USD": r2(M.usd(m)), "Neto USD": r2(M.netoUsd(m)),
+    "Percepción IIBB ARS": r2(m.percIIBB), "Percepción IVA ARS": r2(m.percIVA), "Percepción Ganancias ARS": r2(m.percGan), "Impuestos internos y otros tributos ARS": r2(m.otrosTribARS), "No gravado o exento ARS": r2(m.noGravadoARS), "Pagado por Julio sin reintegro": m.fueraDeCaja ? "Sí" : "", "Neto ARS": r2(M.netoArs(m)), "Dólar MEP": r2(m.cotizacion), "Monto USD": r2(M.usd(m)), "Neto USD": r2(M.netoUsd(m)),
     "Ret. Ganancias": r2(m.retGan), "Ret. IIBB": r2(m.retIIBB), "Ret. IVA": r2(m.retIVA), "Ret. otras": r2(m.retOtras), "TC de pago": m.tcPago || "",
     Certificado: m.certificado ? (C.tituloDoc(S.certificados.find(c => c.id === m.certificado) || {}) || "") : "",
     Socio: M.socioNombre(m.socio), "Tasa %": m.tasa ?? "", "Pagado por (préstamo)": m.pagadoPor ? M.socioNombre(m.pagadoPor) : "", "Vinculado a gasto": m.gastoVinculado ? "Sí" : "", "Devolución (operación)": m.operacion || "", Recuperable: m.recuperable ? "Sí" : "", Notas: m.notas || "", "Cargado por": M.socioNombre(m.creadoPor) || "", "Aprobado por": m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", Id: m.id

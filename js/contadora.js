@@ -8,6 +8,8 @@
    - Sueldos, cargas sociales y tasas.
    - Gastos sin factura (hoja aparte, solo para control interno).
    - Resumen mensual con fórmulas que suman las otras hojas.
+   - Planilla completa de Magna (opciones.rc): suma las compras de
+     Río Colorado y una hoja de IVA por origen.
    ========================================================= */
 import { S } from "./db.js";
 import * as M from "./modelo.js";
@@ -29,13 +31,22 @@ export function datosFiscales() {
   return { razonSocial: g.razonSocial || "Magna Desarrollos SRL", cuit: g.cuit || "" };
 }
 const cuitProveedor = nombre => { const p = S.proveedores.find(x => x.nombre && nombre && x.nombre.toLowerCase() === String(nombre).toLowerCase()); return p ? p.cuit || "" : ""; };
-const pagadoTxt = m => (m.pagadoPor ? `${M.socioNombre(m.pagadoPor)} (préstamo del socio)` : (S.cuentas.find(c => c.id === (m.cuenta || "c_magna")) || {}).nombre || "Cuenta de Magna");
+const pagadoTxt = m => (m.fueraDeCaja ? "Julio, con su plata (sin reintegro)" : m.pagadoPor ? `${M.socioNombre(m.pagadoPor)} (préstamo del socio)` : (S.cuentas.find(c => c.id === (m.cuenta || "c_magna")) || {}).nombre || "Cuenta de Magna");
+/* De qué parte de Magna es cada movimiento. */
+export function origenDe(bolsillo) {
+  if (bolsillo === "RC") return "Río Colorado";
+  if (bolsillo === "ESTRUCTURA") return "MICA · Estructura";
+  if (bolsillo === "MAGNA") return "Magna (propio)";
+  if (bolsillo === "RESERVA") return "Magna · Reserva fiscal";
+  const p = M.proyecto(bolsillo);
+  return p ? "MICA · " + p.nombre : bolsillo || "";
+}
 
 /* Filas de cada hoja (también sirven para probar sin generar el archivo). */
-export function armarDatos(desde, hasta) {
+export function armarDatos(desde, hasta, opciones = {}) {
   const gastos = S.movimientos.filter(m => M.esCosto(m) && enRango(m.fecha, desde, hasta)).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
   const baseGasto = m => ({
-    fecha: m.fecha, mes: mes(m.fecha), proveedor: m.proveedor || "", cuit: cuitProveedor(m.proveedor), concepto: m.concepto || "",
+    fecha: m.fecha, mes: mes(m.fecha), origen: origenDe(m.bolsillo), proveedor: m.proveedor || "", cuit: cuitProveedor(m.proveedor), concepto: m.concepto || "",
     asignado: M.nombreBolsillo(m.bolsillo), imputacion: M.nombreImputacion(m, 60), categoria: M.nombreCategoria(m.tipoCosto), subcategoria: m.subcategoria || "",
     pagado: pagadoTxt(m), cargado: M.socioNombre(m.creadoPor) || "", aprobado: m.aprobadoPor ? M.socioNombre(m.aprobadoPor) : "", notas: m.notas || ""
   });
@@ -45,17 +56,42 @@ export function armarDatos(desde, hasta) {
     const ivaEn = x => (iva && (a === x || Number(a) === x) ? r2(iva) : 0);
     const o = Object.assign(baseGasto(m), {
       tipo: FISCAL_TXT[m.fiscal], numero: m.comprobante || "", alicuota: iva ? M.nombreAlicuota(a) : m.fiscal === "A" ? "0%" : "—",
-      neto: r2(M.netoArs(m)), iva21: ivaEn(21), iva105: ivaEn(10.5), iva27: ivaEn(27), ivaVarias: a === "varias" ? r2(iva) : 0,
+      netoGravado: r2(M.netoGravadoArs(m)), noGravado: r2(M.noGravado(m)), otrosTrib: r2(M.otrosTributos(m)), iva21: ivaEn(21), iva105: ivaEn(10.5), iva27: ivaEn(27), ivaVarias: a === "varias" ? r2(iva) : 0,
       percIVA: r2(m.percIVA), percIIBB: r2(m.percIIBB), percGan: r2(m.percGan)
     });
     // IVA de una alícuota que no está en las columnas (por si acaso): va a "varias" para no perderlo.
     if (iva && !o.iva21 && !o.iva105 && !o.iva27 && !o.ivaVarias) o.ivaVarias = r2(iva);
     o.ivaTotal = r2(o.iva21 + o.iva105 + o.iva27 + o.ivaVarias);
-    o.total = r2(o.neto + o.ivaTotal + o.percIVA + o.percIIBB + o.percGan);
+    o.neto = r2(o.netoGravado + o.noGravado);
+    o.total = r2(o.netoGravado + o.noGravado + o.ivaTotal + o.otrosTrib + o.percIVA + o.percIIBB + o.percGan);
     return o;
   });
+  // Planilla completa: compras de Río Colorado (ya normalizadas, en pesos).
+  const rc = (opciones.rc || []).filter(c => enRango(c.fecha, desde, hasta));
+  rc.filter(c => c.letra !== "X").forEach(c => {
+    const iva = c.letra === "A" ? n(c.iva) : 0;
+    const a = c.alicuota;
+    const ivaEn = x => (iva && Number(a) === x ? r2(iva) : 0);
+    const o = {
+      fecha: c.fecha, mes: mes(c.fecha), origen: "Río Colorado", proveedor: c.proveedor || "", cuit: c.cuit || "", concepto: c.concepto || "",
+      asignado: "Río Colorado", imputacion: c.rubro || "", categoria: c.tipo || "", subcategoria: "", pagado: c.financia ? "Río Colorado · " + c.financia : "Río Colorado",
+      cargado: c.cargadoPor || "", aprobado: "", notas: c.notas || "",
+      tipo: { A: "Factura A", B: "Factura B", C: "Factura C" }[c.letra] || "Factura", numero: c.numero || "", alicuota: iva ? M.nombreAlicuota(a) : c.letra === "A" ? "0%" : "—",
+      netoGravado: r2(c.netoGravado), noGravado: r2(c.noGravado), otrosTrib: r2(c.otrosTrib), iva21: ivaEn(21), iva105: ivaEn(10.5), iva27: ivaEn(27), ivaVarias: 0,
+      percIVA: r2(c.percIVA), percIIBB: r2(c.percIIBB), percGan: r2(c.percGan)
+    };
+    if (iva && !o.iva21 && !o.iva105 && !o.iva27) o.ivaVarias = r2(iva);
+    o.ivaTotal = r2(o.iva21 + o.iva105 + o.iva27 + o.ivaVarias);
+    o.neto = r2(o.netoGravado + o.noGravado);
+    o.total = r2(o.netoGravado + o.noGravado + o.ivaTotal + o.otrosTrib + o.percIVA + o.percIIBB + o.percGan);
+    compras.push(o);
+  });
+  compras.sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)));
   const sueldos = gastos.filter(m => m.fiscal === "S").map(m => Object.assign(baseGasto(m), { numero: m.comprobante || "", monto: r2(m.montoARS) }));
   const sinFactura = gastos.filter(m => !m.fiscal || m.fiscal === "X").map(m => Object.assign(baseGasto(m), { monto: r2(m.montoARS) }));
+  rc.filter(c => c.letra === "X").forEach(c => sinFactura.push({ fecha: c.fecha, mes: mes(c.fecha), origen: "Río Colorado", proveedor: c.proveedor || "", cuit: c.cuit || "", concepto: c.concepto || "",
+    asignado: "Río Colorado", imputacion: c.rubro || "", categoria: c.tipo || "", subcategoria: "", pagado: c.financia ? "Río Colorado · " + c.financia : "Río Colorado", cargado: c.cargadoPor || "", aprobado: "", notas: c.notas || "", monto: r2(c.total) }));
+  sinFactura.sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)));
 
   // Ventas: facturas emitidas desde Certificados y cobros de factura cargados a mano.
   const ventas = [];
@@ -95,15 +131,16 @@ export function armarDatos(desde, hasta) {
       return o;
     });
   const meses = M.mesesEntre(desde, hasta);
-  return { compras, ventas, retenciones, sueldos, sinFactura, meses };
+  return { compras, ventas, retenciones, sueldos, sinFactura, meses, porOrigen: opciones.porOrigen || null };
 }
 
-export async function exportarContadora(desde, hasta, usuario) {
-  const d = armarDatos(desde, hasta);
+export async function exportarContadora(desde, hasta, usuario, opciones = {}) {
+  const d = armarDatos(desde, hasta, opciones);
+  const completa = !!opciones.rc;
   const fis = datosFiscales();
   const wb = await nuevoLibro();
   const periodo = desde === hasta ? mesLabel(desde) : `${mesLabel(desde)} a ${mesLabel(hasta)}`;
-  const sub = `${fis.cuit ? "CUIT " + fis.cuit + " · " : ""}Período: ${periodo} · Montos en pesos · Emitida el ${fmtFecha(hoyISO(), true)}${usuario ? " por " + usuario : ""} desde MICA · Gestión`;
+  const sub = `${fis.cuit ? "CUIT " + fis.cuit + " · " : ""}Período: ${periodo} · Montos en pesos · ${completa ? "Todo Magna: obras de MICA, Río Colorado y compras propias · " : ""}Emitida el ${fmtFecha(hoyISO(), true)}${usuario ? " por " + usuario : ""} desde MICA · Gestión`;
 
   // El resumen va primero pero se completa al final, cuando ya se sabe dónde quedó cada hoja.
   const wsRes = wb.addWorksheet("Resumen", { views: [{ showGridLines: false }], properties: { tabColor: { argb: COLOR.negro } } });
@@ -114,19 +151,22 @@ export async function exportarContadora(desde, hasta, usuario) {
   const hc = hojaTabla(wb, "Compras con factura", [
     ...colsGasto,
     { t: "Comprobante", k: "tipo", f: "texto", w: 13 }, { t: "N° comprobante", k: "numero", f: "texto", w: 17 },
-    { t: "Proveedor", k: "proveedor", f: "texto", w: 26 }, { t: "CUIT", k: "cuit", f: "texto", w: 14 }, { t: "Concepto", k: "concepto", f: "texto", w: 30 },
-    { t: "Neto", k: "neto", f: "ars", w: 14, total: true },
+    { t: "Proveedor", k: "proveedor", f: "texto", w: 26 }, { t: "CUIT", k: "cuit", f: "texto", w: 14 }, { t: "Origen", k: "origen", f: "texto", w: 20 }, { t: "Concepto", k: "concepto", f: "texto", w: 30 },
+    { t: "Neto gravado", k: "netoGravado", f: "ars", w: 14, total: true }, { t: "No gravado o exento", k: "noGravado", f: "ars", w: 12, total: true },
     { t: "Alícuota", k: "alicuota", f: "texto", w: 9, a: "center" },
     { t: "IVA 21%", k: "iva21", f: "ars", w: 12, total: true }, { t: "IVA 10,5%", k: "iva105", f: "ars", w: 12, total: true }, { t: "IVA 27%", k: "iva27", f: "ars", w: 12, total: true },
     { t: "IVA varias alícuotas", k: "ivaVarias", f: "ars", w: 13, total: true },
     { t: "IVA total", k: "ivaTotal", f: "ars", w: 13, total: true, formula: (r, c, col) => `SUM(${col("iva21")}${r}:${col("ivaVarias")}${r})` },
+    { t: "Impuestos internos y otros tributos", k: "otrosTrib", f: "ars", w: 13, total: true },
     { t: "Percepción IVA", k: "percIVA", f: "ars", w: 12, total: true }, { t: "Percepción IIBB", k: "percIIBB", f: "ars", w: 12, total: true }, { t: "Percepción Ganancias", k: "percGan", f: "ars", w: 12, total: true },
-    { t: "Total comprobante", k: "total", f: "ars", w: 15, total: true, formula: (r, c, col) => `${col("neto")}${r}+${col("ivaTotal")}${r}+${col("percIVA")}${r}+${col("percIIBB")}${r}+${col("percGan")}${r}` },
+    { t: "Total comprobante", k: "total", f: "ars", w: 15, total: true, formula: (r, c, col) => `${col("netoGravado")}${r}+${col("noGravado")}${r}+${col("ivaTotal")}${r}+${col("otrosTrib")}${r}+${col("percIVA")}${r}+${col("percIIBB")}${r}+${col("percGan")}${r}` },
     { t: "Asignado a", k: "asignado", f: "texto", w: 24 }, { t: "Imputación", k: "imputacion", f: "texto", w: 26 }, { t: "Categoría", k: "categoria", f: "texto", w: 16 }, { t: "Subcategoría", k: "subcategoria", f: "texto", w: 22 },
     { t: "Pagado con", k: "pagado", f: "texto", w: 22 }, { t: "Cargado por", k: "cargado", f: "texto", w: 11 }, { t: "Aprobado por", k: "aprobado", f: "texto", w: 11 }, { t: "Notas", k: "notas", f: "texto", w: 30 }
   ], d.compras, { titulo: `${fis.razonSocial} · Compras con factura`, subtitulo: sub, totales: true, congelarCol: 3, notas: [
-    "Neto: total del comprobante menos IVA y percepciones. En las facturas B o C el IVA no se discrimina y queda dentro del neto.",
-    "«Pagado con»: si dice «préstamo del socio», el socio la pagó con su plata y Magna se la debe; la factura igual es a nombre de Magna."
+    "Neto gravado: total del comprobante menos IVA, percepciones, impuestos internos y lo no gravado. En las facturas B o C el IVA no se discrimina y queda dentro del neto gravado.",
+    "Impuestos internos y otros tributos: por ejemplo, el impuesto a los combustibles de las cargas de nafta o gasoil. Son costo, no son IVA ni pago a cuenta.",
+    "«Pagado con»: si dice «préstamo del socio», el socio la pagó con su plata y Magna se la debe. Si dice «sin reintegro», la pagó Julio con su plata y Magna no se la devuelve. En los dos casos la factura es a nombre de Magna.",
+    ...(completa ? ["«Origen»: a qué parte de Magna corresponde: cada obra de MICA, MICA · Estructura, Magna (propio) o Río Colorado."] : [])
   ] });
 
   const hv = hojaTabla(wb, "Ventas", [
@@ -152,7 +192,7 @@ export async function exportarContadora(desde, hasta, usuario) {
   ], d.retenciones, { titulo: `${fis.razonSocial} · Retenciones sufridas en los cobros`, subtitulo: sub, totales: true, notas: ["Pedir al cliente los certificados de retención de cada cobro."] });
 
   const colsSimple = [
-    ...colsGasto, { t: "Proveedor o beneficiario", k: "proveedor", f: "texto", w: 26 }, { t: "CUIT", k: "cuit", f: "texto", w: 14 }, { t: "Concepto", k: "concepto", f: "texto", w: 32 },
+    ...colsGasto, { t: "Proveedor o beneficiario", k: "proveedor", f: "texto", w: 26 }, { t: "CUIT", k: "cuit", f: "texto", w: 14 }, { t: "Origen", k: "origen", f: "texto", w: 20 }, { t: "Concepto", k: "concepto", f: "texto", w: 32 },
     { t: "Monto", k: "monto", f: "ars", w: 15, total: true }, { t: "Asignado a", k: "asignado", f: "texto", w: 24 }, { t: "Categoría", k: "categoria", f: "texto", w: 16 }, { t: "Subcategoría", k: "subcategoria", f: "texto", w: 24 },
     { t: "Pagado con", k: "pagado", f: "texto", w: 22 }, { t: "Cargado por", k: "cargado", f: "texto", w: 11 }, { t: "Notas", k: "notas", f: "texto", w: 30 }
   ];
@@ -165,12 +205,13 @@ export async function exportarContadora(desde, hasta, usuario) {
   const ref = (h, k) => { const L = h.col(k); return `'${h.ws.name}'!$${L}$${h.primera}:$${L}$${Math.max(h.ultima, h.primera)}`; };
   const refMes = h => ref(h, "mes");
   const sumaMes = (h, k, filas, celdaMes) => ({ formula: `SUMIFS(${ref(h, k)},${refMes(h)},${celdaMes})`, result: r2(filas.reduce((a, o) => a + n(o[k]), 0)) });
+  const sumaDos = (h, k1, k2, filas, celdaMes) => ({ formula: `SUMIFS(${ref(h, k1)},${refMes(h)},${celdaMes})+SUMIFS(${ref(h, k2)},${refMes(h)},${celdaMes})`, result: r2(filas.reduce((a, o) => a + n(o[k1]) + n(o[k2]), 0)) });
   wsRes.columns = [{ width: 16 }, ...Array(13).fill({ width: 15 })];
   wsRes.getCell("A1").value = `${fis.razonSocial} · Resumen para la contadora`;
   wsRes.getCell("A1").font = { name: "Arial", size: 14, bold: true };
   wsRes.getCell("A2").value = sub;
   wsRes.getCell("A2").font = { name: "Arial", size: 9, color: { argb: COLOR.gris } };
-  const encRes = ["Mes", "Ventas netas", "IVA débito", "Compras netas con factura", "IVA crédito", "Percepciones de IVA", "Retenciones de IVA", "Saldo de IVA del mes", "Percepciones de IIBB", "Retenciones de IIBB", "Percepciones de Ganancias", "Retenciones de Ganancias", "Sueldos, cargas y tasas", "Gastos sin factura"];
+  const encRes = ["Mes", "Ventas netas", "IVA débito", "Compras netas con factura (sin impuestos internos)", "IVA crédito", "Percepciones de IVA", "Retenciones de IVA", "Saldo de IVA del mes", "Percepciones de IIBB", "Retenciones de IIBB", "Percepciones de Ganancias", "Retenciones de Ganancias", "Sueldos, cargas y tasas", "Gastos sin factura"];
   for (let c = 1; c <= encRes.length; c++) wsRes.getRow(3).getCell(c).border = { top: { style: "medium", color: { argb: COLOR.rojo } } };
   wsRes.getRow(3).height = 6;
   const fe = 4;
@@ -189,7 +230,7 @@ export async function exportarContadora(desde, hasta, usuario) {
     const delMes = arr => arr.filter(o => o.mes === mesNum(m));
     const vals = [
       sumaMes(hv, "neto", delMes(d.ventas), cm), sumaMes(hv, "iva", delMes(d.ventas), cm),
-      sumaMes(hc, "neto", delMes(d.compras), cm), sumaMes(hc, "ivaTotal", delMes(d.compras), cm),
+      sumaDos(hc, "netoGravado", "noGravado", delMes(d.compras), cm), sumaMes(hc, "ivaTotal", delMes(d.compras), cm),
       sumaMes(hc, "percIVA", delMes(d.compras), cm), sumaMes(hr, "retIVA", delMes(d.retenciones), cm),
       null,
       sumaMes(hc, "percIIBB", delMes(d.compras), cm), sumaMes(hr, "retIIBB", delMes(d.retenciones), cm),
@@ -238,7 +279,21 @@ export async function exportarContadora(desde, hasta, usuario) {
   wsRes.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } };
   wsRes.headerFooter = { oddFooter: "&L&8" + fis.razonSocial + " — Resumen&R&8Página &P de &N" };
 
-  const nombre = `${fis.razonSocial.replace(/[^\wÁÉÍÓÚáéíóúñÑ]+/g, "_")}_contadora_${desde}${desde !== hasta ? "_a_" + hasta : ""}.xlsx`;
+  /* ----- IVA por origen (solo en la planilla completa de Magna) ----- */
+  if (d.porOrigen && d.porOrigen.length) {
+    hojaTabla(wb, "IVA por origen", [
+      { t: "Mes", k: "mesTxt", f: "texto", w: 11 }, { t: "Origen", k: "origen", f: "texto", w: 26 },
+      { t: "IVA débito", k: "debito", f: "ars", w: 15, total: true }, { t: "IVA crédito", k: "credito", f: "ars", w: 15, total: true },
+      { t: "Retenciones y percepciones de IVA", k: "ret", f: "ars", w: 15, total: true },
+      { t: "Saldo del mes", k: "saldo", f: "ars", w: 15, total: true, formula: (r, c, col) => `${col("debito")}${r}-${col("credito")}${r}-${col("ret")}${r}` },
+      { t: "Percepciones y retenciones de IIBB", k: "iibb", f: "ars", w: 15, total: true }, { t: "Percepciones y retenciones de Ganancias", k: "gan", f: "ars", w: 15, total: true }
+    ], d.porOrigen, { titulo: `${fis.razonSocial} · IVA por origen`, subtitulo: sub, totales: true, tabColor: COLOR.grisMedio, notas: [
+      "Cada fila es una parte de Magna en un mes. La suma de todas es el IVA de Magna: ARCA ve una sola declaración.",
+      "Saldo del mes positivo: esa parte generó IVA a pagar. Negativo: aportó crédito fiscal que usaron las otras."
+    ] });
+  }
+
+  const nombre = `${fis.razonSocial.replace(/[^\wÁÉÍÓÚáéíóúñÑ]+/g, "_")}_contadora_${completa ? "completa_" : ""}${desde}${desde !== hasta ? "_a_" + hasta : ""}.xlsx`;
   await guardarLibro(wb, nombre);
   return { compras: d.compras.length, ventas: d.ventas.length, sueldos: d.sueldos.length, sinFactura: d.sinFactura.length, retenciones: d.retenciones.length };
 }

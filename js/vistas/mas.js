@@ -28,7 +28,8 @@ export function render(el) {
       <a href="#impuestos">${ICONOS.impuestos}<span>Impuestos</span></a>
       <a href="#base">${ICONOS.base}<span>Base de costos</span></a>
       <a href="#preguntar">${ICONOS.preguntar}<span>Preguntar</span></a>
-      ${admin ? `<a href="#ajustes/proyectos">${ICONOS.ajustes}<span>Proyectos</span></a>
+      ${admin ? `<a href="#magnaiva">${ICONOS.factura}<span>Magna · IVA y contadora</span></a>
+      <a href="#ajustes/proyectos">${ICONOS.ajustes}<span>Proyectos</span></a>
       <a href="#ajustes/proveedores">${ICONOS.movimientos}<span>Proveedores</span></a>
       <a href="#ajustes/cuentas">${ICONOS.tablero}<span>Cuentas y categorías</span></a>
       <a href="#ajustes/usuarios">${ICONOS.socios}<span>Usuarios y permisos</span></a>
@@ -38,6 +39,6 @@ export function render(el) {
       <button type="button" id="mas-salir">${ICONOS.salir}<span>Salir</span></button>
     </nav>
   </section>
-  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 10</p>`;
+  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 11</p>`;
   el.querySelector("#mas-salir").addEventListener("click", () => app.salir());
 }

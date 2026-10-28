@@ -7,7 +7,7 @@ import { actualizarProyecto, idAvance } from "./presupuesto.js";
 
 export const CATEGORIAS_INICIALES = {
   categoriasEstructura: ["Contadora y estudio", "Seguros", "Vehículos", "Cámaras y cuotas (CASEMICA)", "Bancos y comisiones", "Software y sistemas", "Oficina", "Otros"],
-  categoriasMagna: ["Contadora de la SRL", "Cuota CASEMICA", "Bancos y comisiones", "Trámites y sellados", "Otros"],
+  categoriasMagna: ["Combustible", "Materiales de corralón", "Contadora de la SRL", "Cuota CASEMICA", "Bancos y comisiones", "Trámites y sellados", "Otros"],
   categoriasReserva: ["IVA", "Ingresos Brutos", "Ganancias", "Impuesto al cheque", "Otros impuestos"]
 };
 
@@ -53,6 +53,17 @@ export function sembrarSiHaceFalta() {
   return true;
 }
 
+/* Versión 11: Magna suma las categorías de sus compras propias (combustible y corralón).
+   Se hace una sola vez y respeta lo que se haya editado en Ajustes. */
+export function migrarV11() {
+  const g = S.config.general || {};
+  if (!g.semilla || g.migracionV11) return false;
+  const cats = Array.isArray(g.categoriasMagna) ? g.categoriasMagna.slice() : CATEGORIAS_INICIALES.categoriasMagna.slice();
+  ["Materiales de corralón", "Combustible"].forEach(c => { if (!cats.some(x => x.toLowerCase() === c.toLowerCase())) cats.unshift(c); });
+  guardarConfig("general", { categoriasMagna: cats, migracionV11: new Date().toISOString() });
+  return true;
+}
+
 /* ---------- datos de ejemplo (solo modo local, para probar) ---------- */
 export function datosDeEjemplo() {
   const mov = (o) => Object.assign({ cuenta: "c_magna", cotizacionFuente: "manual", demo: true, creadoPor: "julio", creadoEl: new Date().toISOString() }, o);
@@ -80,6 +91,8 @@ export function datosDeEjemplo() {
   L.push(mov({ id: "mo_demo_jose", tipo: "egreso", clase: "gasto", fecha: "2026-09-22", bolsillo: "p_trescruces", montoARS: 420000, ivaARS: iva21(420000), alicuota: 21, fiscal: "A", cotizacion: 1401, proveedor: "YPF Fiambalá", comprobante: "0012-00098765", concepto: "Gasoil camioneta", imputacion: "g", tipoCosto: "Indirectos", subcategoria: "Combustible de movilidad", pagadoPor: "jose", creadoPor: "jose" }));
   L.push(mov({ id: "mo_demo_jose__prest", tipo: "ingreso", clase: "prestamo", fecha: "2026-09-22", bolsillo: "p_trescruces", montoARS: 420000, cotizacion: 1401, socio: "jose", tasa: 0, gastoVinculado: "mo_demo_jose", concepto: "Pagó un gasto: YPF Fiambalá · Gasoil camioneta", notas: "Generado por la app a partir del gasto. Se edita o borra desde el gasto.", creadoPor: "jose" }));
   L.push(mov({ tipo: "pase", clase: "reserva", fecha: "2026-09-19", bolsillo: "p_trescruces", destino: "RESERVA", montoARS: 9000000, cotizacion: 1398, concepto: "Reserva IVA septiembre" }));
+  // Compra propia de Magna: combustible pagado por Julio, sin reintegro (tique factura A con impuesto a los combustibles).
+  L.push(mov({ tipo: "egreso", clase: "gasto", fecha: "2026-10-20", bolsillo: "MAGNA", montoARS: 98011.02, ivaARS: 14232.24, otrosTribARS: 16006.2, fiscal: "A", alicuota: 21, cotizacion: 1450, proveedor: "Matías Amengual SRL", comprobante: "00039-00091987", concepto: "Nafta Súper 44,51 l", imputacion: "c:Combustible", fueraDeCaja: true, recuperable: false }));
   return L;
 }
 
@@ -108,7 +121,8 @@ export function certificadosDeEjemplo() {
 
 export function proveedoresDeEjemplo() {
   return ["Seguridad Andina SRL", "Ing. Paula Herrera", "Sueldos y cargas", "Grúas del Oeste SA", "Transporte Fiambalá", "YPF Fiambalá", "Estudio Contable Ríos", "CASEMICA"]
-    .map(n => ({ nombre: n, cuit: "", rubro: "", notas: "", demo: true }));
+    .map(n => ({ nombre: n, cuit: "", rubro: "", notas: "", demo: true }))
+    .concat([{ nombre: "Matías Amengual SRL", cuit: "30-66813329-7", rubro: "", notas: "Estación de servicio (YPF)", demo: true, habitual: { bolsillo: "MAGNA", imputacion: "c:Combustible", fueraDeCaja: true } }]);
 }
 
 /* Presupuesto de ejemplo para Tres Cruces: costos cotizados, ventanas y avance. Solo para probar. */

@@ -78,7 +78,7 @@ export function reservaProyecto(p, r = M.resumenProyecto(p)) {
   ];
   const aReservar = conceptos.reduce((a, c) => a + c.ars, 0);
   const reservado = S.movimientos.filter(m => m.tipo === "pase" && m.clase === "reserva" && m.bolsillo === p.id && m.destino === "RESERVA").reduce((a, m) => a + n(m.montoARS), 0)
-    - S.movimientos.filter(m => m.tipo === "pase" && m.bolsillo === "RESERVA" && m.destino === p.id).reduce((a, m) => a + n(m.montoARS), 0);
+    - S.movimientos.filter(m => m.tipo === "pase" && m.bolsillo === "RESERVA" && m.destino === p.id && m.clase !== "compiva").reduce((a, m) => a + n(m.montoARS), 0);
   return { conceptos, aReservar, reservado, pendiente: aReservar - reservado, iva, mep };
 }
 

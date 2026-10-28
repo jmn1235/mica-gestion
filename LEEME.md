@@ -360,3 +360,20 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
 - El botón de arriba de Cierre de proyecto ahora se llama «Imprimir la pantalla», para no confundirlo con el PDF del informe.
 - Las reglas de Firestore no cambian.
 
+## Novedades de la versión 11
+
+- **Magna · IVA y contadora** (`#magnaiva`, `js/vistas/magnaiva.js`, `js/magnaIva.js`). Solo la ve el administrador: en el menú «MICA y Magna» y en «Más». Junta el IVA de toda Magna Desarrollos SRL:
+  - **Orígenes:** cada proyecto de MICA, MICA · Estructura, Magna (propio, con la Reserva fiscal) y Río Colorado.
+  - **IVA mes a mes de Magna:** débito, crédito, retenciones y percepciones, lo que queda a pagar y lo que queda a favor (técnico y de libre disponibilidad), que pasa al mes siguiente.
+  - **Por origen:** débito, crédito, saldo de IVA y pagos a cuenta de IIBB y Ganancias (percepciones de compras y retenciones de cobros).
+  - **Compensación de IVA entre proyectos:** con el saldo acumulado hasta el mes elegido, el que tiene IVA a pagar le paga al que tiene crédito a favor, en proporción. Magna (propio) no participa. Al registrar, sale de Magna · Reserva fiscal: pase si cobra un bolsillo de MICA, egreso de la cuenta si cobra Río Colorado. La clase nueva es `compiva`, con `compiva: { de, a }`. `reservaProyecto` no cuenta estos pases como liberación de reserva.
+  - **Planilla completa para la contadora:** la misma planilla de siempre más las compras de Río Colorado, la columna «Origen» y la hoja «IVA por origen».
+- **Lectura de Río Colorado** (`js/rioColorado.js`): solo lectura de la base de Firebase `riocolorado-1561b` (`proyectos/rio-colorado`: gastos, proveedores e ivamov), con login de Google propio. Lo leído queda en el dispositivo (`mica_rc_v1`). Si no se puede conectar, se puede cargar el respaldo `.json` de esa app. En la vista previa hay datos de ejemplo.
+- **Impuestos internos y otros tributos** (`otrosTribARS`) y **no gravado o exento** (`noGravadoARS`) en cada gasto: son costo, pero en la planilla van aparte del neto gravado (`netoGravadoArs`). El IVA se calcula sobre lo gravado.
+- **Lectura de facturas con IA:** tiques factura A (código 081), CUIT del comprador (avisa si no es Magna), impuestos internos (impuesto a los combustibles), control de la suma (neto + IVA + internos + percepciones = total) y un ejemplo real de tique de combustible en las instrucciones. Si es combustible o un proveedor que suele ir a Magna, propone cargarlo en Magna · Julio.
+- **«Lo pagué yo con mi plata, sin reintegro»** (`fueraDeCaja`): para compras de Magna que paga Julio. El IVA cuenta para Magna, pero no toca saldos de bolsillos ni de la cuenta, no paga impuesto al cheque y no queda a favor de Julio.
+- **Proveedor habitual** (`proveedores[].habitual`): la app recuerda a qué bolsillo y categoría van las facturas de Magna de cada proveedor.
+- **Categorías de Magna:** se suman «Combustible» y «Materiales de corralón» (una sola vez, `migracionV11`).
+- **Río Colorado v6.5** (archivo aparte): Factura C, CUIT del proveedor en cada gasto, percepciones (IIBB, IVA, Ganancias) e impuestos internos, en la carga manual, en la lectura de facturas con IA y en la exportación a Excel.
+- Las reglas de Firestore de MICA no cambian.
+

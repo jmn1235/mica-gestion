@@ -5,7 +5,7 @@
 import { S, estado, alCambiar, iniciarLocal, iniciarNube, existeEnServidor, guardarConfig } from "./db.js";
 import { hayFirebase, cargarFirebase, escucharLogin, entrarConGoogle, salir, usuarioLocal, entrarLocal } from "./auth.js";
 import { SOCIOS } from "./config.js";
-import { sembrarSiHaceFalta, cargarEjemplo } from "./semilla.js";
+import { sembrarSiHaceFalta, cargarEjemplo, migrarV11 } from "./semilla.js";
 import { app, ctxValido, fijarCtx, ctxDeKey, opcionesCtx } from "./contexto.js";
 import { $, $$, esc, ICONOS, toast } from "./ui.js";
 import * as tablero from "./vistas/tablero.js";
@@ -25,10 +25,11 @@ import * as liquidacion from "./vistas/liquidacion.js";
 import * as base from "./vistas/base.js";
 import { vencidasTodas } from "./certificados.js";
 import * as aprobaciones from "./vistas/aprobaciones.js";
+import * as magnaiva from "./vistas/magnaiva.js";
 import * as PER from "./permisos.js";
 import { comoSistema } from "./db.js";
 
-const VISTAS = { tablero, cargar, movimientos, presupuesto, certificados, seguimiento, cierre, liquidacion, socios, socio, impuestos, base, preguntar, ajustes, mas, aprobaciones };
+const VISTAS = { tablero, cargar, movimientos, presupuesto, certificados, seguimiento, cierre, liquidacion, socios, socio, impuestos, base, preguntar, ajustes, mas, aprobaciones, magnaiva };
 const raiz = $("#app");
 let shellListo = false;
 let actual = { ruta: "", params: [], vista: null };
@@ -94,6 +95,7 @@ async function entrar(usuario) {
     if (estado.modo === "nube") {
       // Solo el administrador inicializa la base (los demás no pueden escribir en ella).
       if (PER.esAdmin() && !(S.config.general || {}).semilla && (await existeEnServidor("config", "general")) === false) sembrarSiHaceFalta();
+      if (PER.esAdmin()) migrarV11();
     } else comoSistema(() => {
       sembrarSiHaceFalta();
       // Vista previa: arranca con datos de ejemplo para mostrar cómo se ve con la obra en marcha.
@@ -101,6 +103,7 @@ async function entrar(usuario) {
         cargarEjemplo();
         if (!(S.config.general || {}).impuestos) guardarConfig("general", { impuestos: { iibb: 3, ganancias: 35, chequeCredito: 0.6, chequeDebito: 0.6, chequeComputable: 33 } });
       }
+      migrarV11();
     });
   }
   armarShell();
@@ -157,6 +160,7 @@ function armarShell() {
         <a href="#socios" data-ruta="socios">${ICONOS.socios}<span>Socios</span></a>
         <a href="#socio" data-ruta="socio">${ICONOS.base}<span>Préstamos por socio</span></a>
         <a href="#impuestos" data-ruta="impuestos">${ICONOS.impuestos}<span>Impuestos</span></a>
+        <a href="#magnaiva" data-ruta="magnaiva" class="solo-admin">${ICONOS.factura}<span>Magna · IVA y contadora</span></a>
         <a href="#base" data-ruta="base">${ICONOS.base}<span>Base de costos</span></a>
         <a href="#preguntar" data-ruta="preguntar">${ICONOS.preguntar}<span>Preguntar</span></a>
         <div class="sep"></div>
@@ -202,7 +206,7 @@ function armarShell() {
 
 function marcarNav(ruta) {
   const r = ruta === "mas" ? "mas" : ruta;
-  const enMas = ["aprobaciones", "ajustes", "presupuesto", "certificados", "seguimiento", "cierre", "liquidacion", "socios", "socio", "impuestos", "base", "preguntar"].includes(r);
+  const enMas = ["aprobaciones", "ajustes", "presupuesto", "certificados", "seguimiento", "cierre", "liquidacion", "socios", "socio", "impuestos", "base", "preguntar", "magnaiva"].includes(r);
   $$("[data-ruta]").forEach(a => a.classList.toggle("activo", a.dataset.ruta === r || !!(enMas && a.dataset.ruta === "mas" && a.closest(".nav-inferior"))));
 }
 

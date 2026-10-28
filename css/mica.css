@@ -605,3 +605,7 @@ tr.cambia td { background: var(--ambar-fondo); }
   .inf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .informe-cierre { max-height: none; }
 }
+
+/* ---------- v11: Magna · IVA y contadora ---------- */
+body:not(.rol-admin) .solo-admin { display: none !important; }
+#r-control { font-variant-numeric: tabular-nums; }

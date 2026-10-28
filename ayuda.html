@@ -561,6 +561,22 @@ details > :last-child { margin-bottom: 14px; }
         <li><strong>Cierre del ejercicio:</strong> viendo Magna, en Impuestos, cargás la Ganancias que determinó la contadora; la app la reparte entre los proyectos según su resultado impositivo, recalcula la reserva de cada uno y te deja <span class="ui">Liberar</span> lo que sobra, que vuelve al bolsillo del proyecto.</li>
       </ul>
       <div class="nota nota-ojo"><svg><use href="#i-ojo"/></svg><div><p>Las tasas (Ganancias, IIBB, impuesto al cheque) se configuran en <span class="ui">Ajustes → Impuestos e IA</span> y son estimaciones. Conviene validarlas con la contadora de Magna.</p></div></div>
+
+      <h3>Magna · IVA y contadora (solo Julio)</h3>
+      <p>Magna Desarrollos es una sola CUIT con un solo IVA, aunque la plata se maneje en dos apps. Esta sección junta todo: las obras de MICA, Estructura, las compras propias de Magna y Río Colorado.</p>
+      <ul>
+        <li><strong>Río Colorado:</strong> tocá <span class="ui">Conectar con Río Colorado</span> y entrá con tu cuenta de Google (la misma de esa app). La app solo lee: no cambia nada en Río Colorado. Si no conecta, bajá el respaldo .json en Río Colorado y cargalo con <span class="ui">Cargar respaldo</span>.</li>
+        <li><strong>IVA de Magna mes a mes</strong> y <strong>por origen</strong>: cuánto aporta cada parte, cuánto queda a pagar y cuánto a favor.</li>
+        <li><strong>Compensación de IVA entre proyectos:</strong> si Río Colorado aporta crédito fiscal y Tres Cruces lo usa contra su débito, Tres Cruces le paga ese IVA. La app propone los montos; tocá <span class="ui">Registrar</span> cuando hagas la transferencia. Si cobra Río Colorado, cargalo también en esa app como «Movimiento de IVA · Vendido a otro proyecto».</li>
+        <li><strong>Planilla completa para la contadora:</strong> la de siempre, con Río Colorado, la columna «Origen» y la hoja «IVA por origen».</li>
+      </ul>
+      <h3>Compras propias de Magna (combustible, corralón)</h3>
+      <ul>
+        <li>Se cargan en <span class="ui">Magna · Julio</span>, con la categoría <strong>Combustible</strong>, <strong>Materiales de corralón</strong> u <strong>Otros</strong>.</li>
+        <li>Si las pagaste vos y Magna no te las devuelve, marcá <span class="ui">Lo pagué yo con mi plata, sin reintegro</span>: el IVA cuenta para Magna, pero no sale de la cuenta del banco.</li>
+        <li>Con <span class="ui">Leer factura</span>, la IA reconoce los tiques de estación de servicio (Tique factura A, código 081) y separa el <strong>impuesto a los combustibles</strong> («impuestos internos» u «otros tributos»): es costo, no es IVA. Abajo muestra el control: neto gravado + IVA + impuestos internos = total.</li>
+        <li>Si cargás un tique de combustible estando en un proyecto, te ofrece pasarlo a Magna · Julio. Después recuerda a cada estación.</li>
+      </ul>
     </section>
 
     <!-- 9 -->
