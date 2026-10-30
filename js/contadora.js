@@ -30,7 +30,49 @@ export function datosFiscales() {
   const g = (S.config.general || {}).magna || {};
   return { razonSocial: g.razonSocial || "Magna Desarrollos SRL", cuit: g.cuit || "" };
 }
-const cuitProveedor = nombre => { const p = S.proveedores.find(x => x.nombre && nombre && x.nombre.toLowerCase() === String(nombre).toLowerCase()); return p ? p.cuit || "" : ""; };
+/* CUIT siempre como texto con guiones (30-66813329-7): así Excel no lo toma como número. */
+export const formatoCuit = v => { const d = String(v || "").replace(/\D/g, ""); return d.length === 11 ? `${d.slice(0, 2)}-${d.slice(2, 10)}-${d.slice(10)}` : String(v || "").trim(); };
+const cuitProveedor = nombre => { const p = S.proveedores.find(x => x.nombre && nombre && x.nombre.toLowerCase() === String(nombre).toLowerCase()); return p ? formatoCuit(p.cuit) : ""; };
+
+/* Número de comprobante comparable: «0053-00009410» y «53-9410» son el mismo. */
+const numeroClave = v => {
+  const partes = String(v || "").split(/\D+/).filter(Boolean).map(x => String(Number(x)));
+  return partes.length ? partes.join("-") : "";
+};
+const unicos = (filas, k) => Array.from(new Set(filas.map(f => String(f[k] || "").trim()).filter(Boolean)));
+const NUM_COMPRA = ["netoGravado", "noGravado", "iva21", "iva105", "iva27", "ivaVarias", "ivaTotal", "otrosTrib", "percIVA", "percIIBB", "percGan", "neto", "total"];
+
+/* Una fila por comprobante: los renglones de una misma factura (mismo tipo, proveedor o CUIT
+   y número) se suman. Una factura se carga en varios renglones cuando va a distintos rubros
+   o imputaciones; para la contadora es un solo comprobante. Sin número no se puede agrupar. */
+export function agruparComprobantes(filas) {
+  const grupos = new Map(), sueltas = [];
+  filas.forEach(f => {
+    const num = numeroClave(f.numero);
+    if (!num) { sueltas.push(Object.assign({}, f, { renglones: 1, aviso: "Sin número de comprobante: no se pudo juntar con otros renglones" })); return; }
+    const quien = String(f.cuit || "").replace(/\D/g, "") || String(f.proveedor || "").trim().toLowerCase();
+    const k = [f.tipo, quien, num].join("|");
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(f);
+  });
+  const juntas = Array.from(grupos.values()).map(rs => {
+    if (rs.length === 1) return Object.assign({}, rs[0], { renglones: 1, aviso: "" });
+    const o = Object.assign({}, rs[0]);
+    NUM_COMPRA.forEach(k => { o[k] = r2(rs.reduce((a, x) => a + n(x[k]), 0)); });
+    const fechas = rs.map(x => x.fecha).sort();
+    o.fecha = fechas[0]; o.mes = rs.find(x => x.fecha === o.fecha).mes;
+    const al = unicos(rs, "alicuota").filter(x => x !== "—");
+    o.alicuota = al.length === 1 ? al[0] : al.length ? "Varias" : o.alicuota;
+    const conceptos = unicos(rs, "concepto");
+    const txt = conceptos.join("; ");
+    o.concepto = txt.length > 140 ? txt.slice(0, 137).trimEnd() + "…" : txt;
+    ["origen", "asignado", "imputacion", "categoria", "subcategoria", "pagado", "cargado", "aprobado", "notas", "cuit", "proveedor"].forEach(k => { o[k] = unicos(rs, k).join(" · "); });
+    o.renglones = rs.length;
+    o.aviso = fechas[0] !== fechas[fechas.length - 1] ? "Los renglones tienen fechas distintas: se tomó la primera" : "";
+    return o;
+  });
+  return juntas.concat(sueltas).sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)) || String(x.numero).localeCompare(String(y.numero)));
+}
 const pagadoTxt = m => (m.fueraDeCaja ? `${M.socioNombre(M.quienPagoSinReintegro(m))}, con su plata (sin reintegro)` : m.pagadoPor ? `${M.socioNombre(m.pagadoPor)} (préstamo del socio)` : (S.cuentas.find(c => c.id === (m.cuenta || "c_magna")) || {}).nombre || "Cuenta de Magna");
 /* De qué parte de Magna es cada movimiento. */
 export function origenDe(bolsillo) {
@@ -73,7 +115,7 @@ export function armarDatos(desde, hasta, opciones = {}) {
     const a = c.alicuota;
     const ivaEn = x => (iva && Number(a) === x ? r2(iva) : 0);
     const o = {
-      fecha: c.fecha, mes: mes(c.fecha), origen: "Río Colorado", proveedor: c.proveedor || "", cuit: c.cuit || "", concepto: c.concepto || "",
+      fecha: c.fecha, mes: mes(c.fecha), origen: "Río Colorado", proveedor: c.proveedor || "", cuit: formatoCuit(c.cuit), concepto: c.concepto || "",
       asignado: "Río Colorado", imputacion: c.rubro || "", categoria: c.tipo || "", subcategoria: "", pagado: c.financia ? "Río Colorado · " + c.financia : "Río Colorado",
       cargado: c.cargadoPor || "", aprobado: "", notas: c.notas || "",
       tipo: { A: "Factura A", B: "Factura B", C: "Factura C" }[c.letra] || "Factura", numero: c.numero || "", alicuota: iva ? M.nombreAlicuota(a) : c.letra === "A" ? "0%" : "—",
@@ -87,6 +129,9 @@ export function armarDatos(desde, hasta, opciones = {}) {
     compras.push(o);
   });
   compras.sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)));
+  // La hoja de compras va con una fila por comprobante; el detalle por renglón, aparte.
+  const comprasDetalle = compras;
+  const comprasJuntas = agruparComprobantes(compras);
   const sueldos = gastos.filter(m => m.fiscal === "S").map(m => Object.assign(baseGasto(m), { numero: m.comprobante || "", monto: r2(m.montoARS) }));
   const sinFactura = gastos.filter(m => !m.fiscal || m.fiscal === "X").map(m => Object.assign(baseGasto(m), { monto: r2(m.montoARS) }));
   rc.filter(c => c.letra === "X").forEach(c => sinFactura.push({ fecha: c.fecha, mes: mes(c.fecha), origen: "Río Colorado", proveedor: c.proveedor || "", cuit: c.cuit || "", concepto: c.concepto || "",
@@ -131,7 +176,7 @@ export function armarDatos(desde, hasta, opciones = {}) {
       return o;
     });
   const meses = M.mesesEntre(desde, hasta);
-  return { compras, ventas, retenciones, sueldos, sinFactura, meses, porOrigen: opciones.porOrigen || null };
+  return { compras: comprasJuntas, comprasDetalle, ventas, retenciones, sueldos, sinFactura, meses, porOrigen: opciones.porOrigen || null };
 }
 
 export async function exportarContadora(desde, hasta, usuario, opciones = {}) {
@@ -140,7 +185,7 @@ export async function exportarContadora(desde, hasta, usuario, opciones = {}) {
   const fis = datosFiscales();
   const wb = await nuevoLibro();
   const periodo = desde === hasta ? mesLabel(desde) : `${mesLabel(desde)} a ${mesLabel(hasta)}`;
-  const sub = `${fis.cuit ? "CUIT " + fis.cuit + " · " : ""}Período: ${periodo} · Montos en pesos · ${completa ? "Todo Magna: obras de MICA, Río Colorado y compras propias · " : ""}Emitida el ${fmtFecha(hoyISO(), true)}${usuario ? " por " + usuario : ""} desde MICA · Gestión`;
+  const sub = `${fis.cuit ? "CUIT " + formatoCuit(fis.cuit) + " · " : ""}Período: ${periodo} · Montos en pesos · ${completa ? "Todo Magna: obras de MICA, Río Colorado y compras propias · " : ""}Emitida el ${fmtFecha(hoyISO(), true)}${usuario ? " por " + usuario : ""} desde MICA · Gestión`;
 
   // El resumen va primero pero se completa al final, cuando ya se sabe dónde quedó cada hoja.
   const wsRes = wb.addWorksheet("Resumen", { views: [{ showGridLines: false }], properties: { tabColor: { argb: COLOR.negro } } });
@@ -148,7 +193,7 @@ export async function exportarContadora(desde, hasta, usuario, opciones = {}) {
   const colsGasto = [
     { t: "Fecha", k: "fecha", f: "fecha", w: 11 }, { t: "Mes", k: "mes", f: "mes", w: 9 }
   ];
-  const hc = hojaTabla(wb, "Compras con factura", [
+  const colsCompras = [
     ...colsGasto,
     { t: "Comprobante", k: "tipo", f: "texto", w: 13 }, { t: "N° comprobante", k: "numero", f: "texto", w: 17 },
     { t: "Proveedor", k: "proveedor", f: "texto", w: 26 }, { t: "CUIT", k: "cuit", f: "texto", w: 14 }, { t: "Origen", k: "origen", f: "texto", w: 20 }, { t: "Concepto", k: "concepto", f: "texto", w: 30 },
@@ -162,12 +207,22 @@ export async function exportarContadora(desde, hasta, usuario, opciones = {}) {
     { t: "Total comprobante", k: "total", f: "ars", w: 15, total: true, formula: (r, c, col) => `${col("netoGravado")}${r}+${col("noGravado")}${r}+${col("ivaTotal")}${r}+${col("otrosTrib")}${r}+${col("percIVA")}${r}+${col("percIIBB")}${r}+${col("percGan")}${r}` },
     { t: "Asignado a", k: "asignado", f: "texto", w: 24 }, { t: "Imputación", k: "imputacion", f: "texto", w: 26 }, { t: "Categoría", k: "categoria", f: "texto", w: 16 }, { t: "Subcategoría", k: "subcategoria", f: "texto", w: 22 },
     { t: "Pagado con", k: "pagado", f: "texto", w: 22 }, { t: "Cargado por", k: "cargado", f: "texto", w: 11 }, { t: "Aprobado por", k: "aprobado", f: "texto", w: 11 }, { t: "Notas", k: "notas", f: "texto", w: 30 }
-  ], d.compras, { titulo: `${fis.razonSocial} · Compras con factura`, subtitulo: sub, totales: true, congelarCol: 3, notas: [
+  ];
+  // Una fila por comprobante: «Renglones» dice de cuántos renglones cargados sale cada factura.
+  const colsJuntas = colsCompras.slice(0, 8).concat([{ t: "Renglones", k: "renglones", f: "entero", w: 9, a: "center" }], colsCompras.slice(8), [{ t: "Observación", k: "aviso", f: "texto", w: 30 }]);
+  const hc = hojaTabla(wb, "Compras con factura", colsJuntas, d.compras, { titulo: `${fis.razonSocial} · Compras con factura`, subtitulo: sub, totales: true, congelarCol: 3, notas: [
+    "Una fila por comprobante. Si una factura se cargó en varios renglones (por ejemplo, porque fue a varios rubros o imputaciones), acá se suman; el detalle está en la hoja «Compras · detalle».",
     "Neto gravado: total del comprobante menos IVA, percepciones, impuestos internos y lo no gravado. En las facturas B o C el IVA no se discrimina y queda dentro del neto gravado.",
     "Impuestos internos y otros tributos: por ejemplo, el impuesto a los combustibles de las cargas de nafta o gasoil. Son costo, no son IVA ni pago a cuenta.",
     "«Pagado con»: si dice «préstamo del socio», el socio la pagó con su plata y Magna se la debe. Si dice «sin reintegro», la pagó ese socio con su plata y Magna no se la devuelve. En los dos casos la factura es a nombre de Magna.",
     ...(completa ? ["«Origen»: a qué parte de Magna corresponde: cada obra de MICA, MICA · Estructura, Magna (propio) o Río Colorado."] : [])
   ] });
+  // Detalle por renglón, como está cargado (para ver a qué rubro o imputación fue cada parte).
+  if (d.comprasDetalle.length > d.compras.length) {
+    hojaTabla(wb, "Compras · detalle", colsCompras, d.comprasDetalle, { titulo: `${fis.razonSocial} · Compras con factura · detalle por renglón`, subtitulo: sub, totales: true, congelarCol: 3, tabColor: COLOR.grisMedio, notas: [
+      "Cada renglón tal como se cargó. Los totales son los mismos que en «Compras con factura»."
+    ] });
+  }
 
   const hv = hojaTabla(wb, "Ventas", [
     ...colsGasto,

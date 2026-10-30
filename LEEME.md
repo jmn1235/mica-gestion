@@ -386,3 +386,9 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
 - **Quién aportó el crédito fiscal:** en Magna · IVA y contadora, una tabla con las compras de Magna por quién las pagó (`comprasMagnaPorQuien`). La planilla de la contadora dice «Jorge, con su plata (sin reintegro)», por ejemplo.
 - **Reglas de Firestore actualizadas** (`bolsilloPermitido`): hay que publicarlas en Firebase.
 
+## Novedades de la versión 13
+
+- **Planilla para la contadora con una fila por comprobante** (`agruparComprobantes` en `js/contadora.js`). Los renglones de una misma factura (mismo tipo, CUIT o proveedor y número de comprobante, sin importar los ceros: «0053-00009410» = «53-9410») se suman en una fila, con la columna «Renglones» y una «Observación». Pasa con las facturas de Río Colorado (un renglón por rubro) y con las de MICA repartidas en varias imputaciones. El detalle por renglón va en la hoja «Compras · detalle». Las facturas sin número quedan sueltas, con un aviso. Vale para la planilla de siempre y para la completa de Magna.
+- **CUIT siempre con guiones** en la planilla (`formatoCuit`), también el de Magna en el subtítulo.
+- Las reglas de Firestore no cambian.
+
