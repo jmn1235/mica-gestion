@@ -609,3 +609,23 @@ tr.cambia td { background: var(--ambar-fondo); }
 /* ---------- v11: Magna · IVA y contadora ---------- */
 body:not(.rol-admin) .solo-admin { display: none !important; }
 #r-control { font-variant-numeric: tabular-nums; }
+
+/* ---------- v14: gasto repartido entre varios destinos ---------- */
+.btn-texto { background: none; border: 0; padding: 4px 0 0; color: var(--rojo); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: left; text-decoration: underline; text-underline-offset: 2px; }
+.btn-texto:hover { color: var(--negro); }
+.reparto { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--linea-2); border-radius: var(--radio); padding: 14px; background: #FBFAFA; }
+.rp-lista { display: flex; flex-direction: column; gap: 8px; }
+.rp-fila { display: grid; grid-template-columns: minmax(150px, 1.3fr) 92px 112px minmax(150px, 1.4fr) minmax(120px, 1fr) minmax(130px, 1fr) 32px; gap: 8px; align-items: center; }
+.rp-pct { display: flex; align-items: center; gap: 4px; }
+.rp-pct input { text-align: right; min-width: 0; }
+.rp-monto { font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; color: var(--tinta-2); }
+.rp-acc { display: flex; gap: 8px; flex-wrap: wrap; }
+#rp-suma.rp-mal { color: var(--rojo); }
+@media (max-width: 860px) {
+  .rp-fila { grid-template-columns: 1fr 92px 32px; border-bottom: 1px solid var(--linea); padding-bottom: 10px; }
+  .rp-fila [data-rp="bol"] { grid-column: 1; }
+  .rp-fila .rp-monto { grid-column: 1 / 3; text-align: left; }
+  .rp-fila [data-rp="imp"], .rp-fila [data-rp="tipo"], .rp-fila [data-rp="sub"] { grid-column: 1 / -1; }
+  .rp-fila .rp-vacio { display: none; }
+  .rp-fila [data-rp-x] { grid-column: 3; grid-row: 1; }
+}

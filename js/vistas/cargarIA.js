@@ -253,7 +253,7 @@ function revisarFactura(d, bol, file, preset = {}) {
     $$("[data-iva]", md).forEach(n => { n.hidden = q("fiscal").value !== "A"; });
     $$("[data-perc] > .campo:not([data-iva])", md).forEach(n => { n.hidden = !["A", "B"].includes(q("fiscal").value) && !n.querySelector("#r-pagado, #r-fuera"); });
     q("guardar").textContent = rs.length > 1 ? `Guardar ${rs.length} gastos` : "Guardar gasto";
-    q("form").hidden = rs.length !== 1;
+    q("form").textContent = rs.length > 1 ? "Repartir en el formulario" : "Revisar en el formulario";
     control();
   };
   const enlazarR = row => $("[data-quitar]", row).addEventListener("click", () => { if ($$(".renglon", md).length > 1) { row.remove(); actualizar(); } });
@@ -283,10 +283,17 @@ function revisarFactura(d, bol, file, preset = {}) {
     pagoSinReintegro: q("fuera") ? q("fuera").value : ""
   });
   q("form").addEventListener("click", () => {
-    const c = datosComunes(), r = leerR()[0];
+    const c = datosComunes(), rs = leerR(), r = rs[0];
     const iva = c.fiscal === "A" ? (parseMonto(q("iva").value) || 0) : 0;
+    const tot = parseMonto(q("total").value) || rs.reduce((a, x) => a + x.monto, 0);
+    // Varios renglones: van al formulario como reparto, cada uno con su porcentaje del total, para elegir el destino de cada parte.
+    let reparto = null;
+    if (rs.length > 1 && tot > 0) {
+      let acum = 0;
+      reparto = rs.map((x, i) => { const pct = i === rs.length - 1 ? Math.round((100 - acum) * 100) / 100 : Math.round(x.monto / tot * 10000) / 100; acum += pct; return { bol, pct, imp: x.imputacion, tipo: x.tipoCosto, sub: x.subcategoria }; });
+    }
     prefill = Object.assign({ tipo: "egreso", clase: "gasto", bolsillo: bol, fecha: c.fecha, proveedor: c.proveedor, comprobante: c.comprobante, fiscal: c.fiscal, alicuota: c.alicuota,
-      montoARS: r.monto || parseMonto(q("total").value) || 0, concepto: r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, subcategoria: r.subcategoria,
+      montoARS: reparto ? tot : (r.monto || tot), concepto: reparto ? rs.map(x => x.concepto).filter(Boolean).join("; ").slice(0, 120) : r.concepto, imputacion: r.imputacion, tipoCosto: r.tipoCosto, subcategoria: r.subcategoria, reparto,
       ivaARS: iva || undefined, pagadoPor: c.pagadoPor, fueraDeCaja: c.fueraDeCaja, pagoSinReintegro: c.pagoSinReintegro, recuperable: bol === "MAGNA" && !c.fueraDeCaja,
       cotizacion: c.cotizacion || undefined, cotizacionFuente: c.cotizacion ? c.cotizacionFuente : undefined, leidoConIA: true }, leerPerc(), leerOtros());
     cerrarModal(); app.ir("cargar");

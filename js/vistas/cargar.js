@@ -119,7 +119,9 @@ export function render(el, params) {
 
   const avisoOperativo = admin ? "" : `<div class="aviso aviso-info" style="max-width:920px">${ICONOS.alerta}<div><b>${solPrev ? "Estás corrigiendo un pedido pendiente." : "Queda pendiente de aprobación."}</b> ${m0 ? "El cambio no se aplica hasta que Julio lo apruebe." : "El gasto no cuenta en los números hasta que Julio lo apruebe."} Podés seguir el estado en <a href="#aprobaciones">Mis cargas</a>.</div></div>`;
   const avisoRevision = solR ? `<div class="aviso aviso-info" style="max-width:920px">${ICONOS.alerta}<div>Corregí lo que haga falta y tocá <b>Aprobar con correcciones</b>. Queda registrado que lo cargó ${esc(PER.socioNombre(solR.autor))} y que lo aprobaste vos.</div></div>` : "";
-  el.innerHTML = cabecera("", titulo, pre && !solX ? `${sub} <span class="tag tag-alerta">Propuesto por la IA: revisalo</span>` : sub) + avisoRevision + avisoOperativo + (editando ? "" : barraIAHtml()) + `
+  const otrasPartes = m0 && m0.reparto ? S.movimientos.filter(x => x.reparto && x.reparto.id === m0.reparto.id && x.id !== m0.id) : [];
+  const avisoReparto = m0 && m0.reparto ? `<div class="aviso aviso-info" style="max-width:920px">${ICONOS.alerta}<div><b>Este gasto es la parte ${m0.reparto.parte} de ${m0.reparto.de} de un reparto</b> (${esc(String(m0.reparto.pct).replace(".", ","))}%). Las otras partes: ${otrasPartes.map(x => `${esc(M.nombreBolsillo(x.bolsillo))} ${esc(fmtARS(x.montoARS))}`).join(", ") || "ya no están"}. Lo que cambies acá vale solo para esta parte.</div></div>` : "";
+  el.innerHTML = cabecera("", titulo, pre && !solX ? `${sub} <span class="tag tag-alerta">Propuesto por la IA: revisalo</span>` : sub) + avisoRevision + avisoOperativo + avisoReparto + (editando ? "" : barraIAHtml()) + `
   <form class="panel form" id="f" novalidate style="max-width:920px">
     <div class="seg seg-tipo" role="radiogroup" aria-label="Tipo de movimiento"${admin ? "" : " hidden"}>
       <button type="button" role="radio" data-tipo="egreso">Gasto</button>
@@ -130,7 +132,8 @@ export function render(el, params) {
     <div class="fila fila-movil-2">
       <div class="campo"><label for="f-fecha">Fecha</label><input type="date" id="f-fecha" required></div>
       <div class="campo"><label for="f-clase" id="l-clase">Tipo</label><select id="f-clase"></select></div>
-      <div class="campo" id="c-bolsillo"><label for="f-bolsillo" id="l-bolsillo">Bolsillo</label><select id="f-bolsillo"></select></div>
+      <div class="campo" id="c-bolsillo"><label for="f-bolsillo" id="l-bolsillo">Bolsillo</label><select id="f-bolsillo"></select>
+        <button type="button" class="btn-texto" id="f-repartir" data-ver="repartible">Repartir entre varios destinos</button></div>
       <div class="campo" data-ver="pase"><label for="f-destino">Va a</label><select id="f-destino"></select></div>
       <div class="campo"${multiCuenta ? "" : " hidden"}><label for="f-cuenta">Cuenta</label><select id="f-cuenta">${S.cuentas.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join("")}</select></div>
     </div>
@@ -151,7 +154,14 @@ export function render(el, params) {
       <div class="campo"><label for="f-concepto">Concepto</label><input id="f-concepto" autocomplete="off" placeholder="Qué es"></div>
     </div>
 
-    <div class="fila" data-ver="gasto">
+    <div class="reparto" data-ver="reparto">
+      <div class="bloque-tit">Reparto del gasto <span class="mute" id="rp-suma" style="font-weight:400"></span></div>
+      <div id="rp-lista" class="rp-lista"></div>
+      <div class="rp-acc"><button type="button" class="btn btn-sec btn-chico" id="rp-add">Agregar destino</button><button type="button" class="btn btn-fant btn-chico" id="rp-uno">Volver a un solo destino</button></div>
+      <p class="hint" style="margin:0">Cada parte se guarda como un gasto aparte, con el mismo comprobante. El IVA, las percepciones y los impuestos internos se reparten en el mismo porcentaje.</p>
+    </div>
+
+    <div class="fila" data-ver="impunica">
       <div class="campo"><label for="f-imp" id="l-imp">Imputación</label><select id="f-imp"></select></div>
       <div class="campo" data-ver="tipocosto"><label for="f-tipocosto">Categoría</label><select id="f-tipocosto"><option value="">Elegí la categoría</option>${M.TIPOS_COSTO.map(t => `<option value="${t}">${esc(M.nombreCategoria(t))}</option>`).join("")}</select></div>
       <div class="campo" data-ver="tipocosto"><label for="f-subcat">Subcategoría</label><select id="f-subcat"></select></div>
@@ -193,7 +203,8 @@ export function render(el, params) {
     <div class="form-pie">
       <button type="submit" class="btn btn-pri" id="f-guardar">Guardar</button>
       ${editando ? `<a class="btn btn-sec" href="${sol0 || solR ? "#aprobaciones" : "#movimientos"}">Cancelar</a>` : `<button type="button" class="btn btn-sec" id="f-otro">${admin ? "Guardar y cargar otro" : "Enviar y cargar otro"}</button>`}
-      ${m0 && !solR ? `<button type="button" class="btn btn-peligro der" id="f-borrar">${ICONOS.borrar}${admin ? "Borrar" : "Pedir que se borre"}</button>` : ""}
+      ${m0 && !solR ? `<button type="button" class="btn btn-peligro der" id="f-borrar">${ICONOS.borrar}${admin ? (m0.reparto ? "Borrar esta parte" : "Borrar") : "Pedir que se borre"}</button>` : ""}
+      ${m0 && !solR && admin && m0.reparto ? `<button type="button" class="btn btn-peligro" id="f-borrar-rp">${ICONOS.borrar}Borrar todo el reparto</button>` : ""}
     </div>
     ${m0 ? `<p class="chico mute" style="margin:0">Cargado por ${esc(M.socioNombre(m0.creadoPor) || m0.creadoPor || "—")}${m0.creadoEl ? " el " + fmtFechaHora(m0.creadoEl) : ""}${m0.modificadoPor ? ` · última edición: ${esc(M.socioNombre(m0.modificadoPor))} el ${fmtFechaHora(m0.modificado)}` : ""}${m0.aprobadoPor ? ` · aprobado por ${esc(M.socioNombre(m0.aprobadoPor))} el ${fmtFechaHora(m0.aprobadoEl)}` : ""}</p>` : ""}
   </form>`;
@@ -220,13 +231,11 @@ export function render(el, params) {
     q("clase").innerHTML = M.CLASES[tipo].filter(c => admin || c.id === "gasto").map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("");
     q("clase").value = M.CLASES[tipo].some(c => c.id === actual) ? actual : CLASE_INICIAL[tipo];
   }
-  function opcionesImputacion() {
-    const bol = q("bolsillo").value;
-    const actual = q("imp").value || st.imputacion || "";
+  /* Opciones de imputación de un bolsillo: ítems, rubros y general (proyecto) o categorías. */
+  function htmlImp(bol, actual = "") {
     const p = M.proyecto(bol);
     let h = "";
     if (p) {
-      $("#l-imp", f).textContent = "Imputación";
       h = `<option value="">Elegí a qué se imputa</option>`;
       const items = p.items || [];
       if (items.length) h += `<optgroup label="Ítems de la cotización">${items.map(it => `<option value="i:${esc(it.id)}">Ítem ${esc(it.numero)} · ${esc(corta(it.descripcion, 70))}</option>`).join("")}</optgroup>`;
@@ -234,12 +243,17 @@ export function render(el, params) {
       if (rubros.length) h += `<optgroup label="Rubros (varios ítems)">${rubros.map(r => `<option value="r:${esc(r)}">${esc(r)}</option>`).join("")}</optgroup>`;
       h += `<optgroup label="Sin ítem"><option value="g">General de obra</option></optgroup>`;
     } else {
-      $("#l-imp", f).textContent = "Categoría";
       const cats = M.categoriasDe(bol);
       h = `<option value="">Elegí la categoría</option>` + cats.map(c => `<option value="c:${esc(c)}">${esc(c)}</option>`).join("");
       if (actual.startsWith("c:") && !cats.includes(actual.slice(2))) h += `<option value="${esc(actual)}">${esc(actual.slice(2))}</option>`;
     }
-    q("imp").innerHTML = h;
+    return h;
+  }
+  function opcionesImputacion() {
+    const bol = q("bolsillo").value;
+    const actual = q("imp").value || st.imputacion || "";
+    $("#l-imp", f).textContent = M.proyecto(bol) ? "Imputación" : "Categoría";
+    q("imp").innerHTML = htmlImp(bol, actual);
     q("imp").value = actual;
     if (q("imp").value !== actual) q("imp").value = "";
   }
@@ -254,6 +268,66 @@ export function render(el, params) {
     q("subcat").innerHTML = h;
     q("subcat").value = v || "";
     q("subcat").disabled = !t;
+  }
+
+  /* ----- reparto de un gasto entre varios destinos ----- */
+  const rp = { activo: false, filas: [] };
+  const bolsRep = () => M.bolsillos().filter(b => b.id !== "RESERVA" && !(b.proyecto && b.estado === "cerrado") && (!permitidos || permitidos.includes(b.id)));
+  const htmlSub = (t, v) => `<option value="">${t ? "Subcategoría" : "Primero la categoría"}</option>` + (t ? M.subcategoriasDe(t) : []).map(x => `<option value="${esc(x)}"${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
+  const fmtPctTxt = v => String(Math.round((Number(v) || 0) * 100) / 100).replace(".", ",");
+  function filaRp(r, i) {
+    const esP = M.esBolsilloProyecto(r.bol);
+    return `<div class="rp-fila" data-i="${i}">
+      <select class="input" data-rp="bol" aria-label="Destino">${bolsRep().map(b => `<option value="${esc(b.id)}"${b.id === r.bol ? " selected" : ""}>${esc(b.nombre)}</option>`).join("")}</select>
+      <div class="rp-pct"><input class="input" data-rp="pct" inputmode="decimal" value="${r.pct ? esc(fmtPctTxt(r.pct)) : ""}" aria-label="Porcentaje"><span>%</span></div>
+      <span class="rp-monto" data-rp="monto"></span>
+      <select class="input" data-rp="imp" aria-label="${esP ? "Imputación" : "Categoría"}">${htmlImp(r.bol, r.imp)}</select>
+      ${esP ? `<select class="input" data-rp="tipo" aria-label="Categoría"><option value="">Categoría</option>${M.TIPOS_COSTO.map(t => `<option value="${t}"${t === r.tipo ? " selected" : ""}>${esc(M.nombreCategoria(t))}</option>`).join("")}</select>
+      <select class="input" data-rp="sub" aria-label="Subcategoría"${r.tipo ? "" : " disabled"}>${htmlSub(r.tipo, r.sub)}</select>` : `<span class="rp-vacio"></span><span class="rp-vacio"></span>`}
+      <button type="button" class="btn-icono" data-rp-x aria-label="Quitar destino">${ICONOS.cerrar}</button></div>`;
+  }
+  function pintarRp() {
+    const lista = $("#rp-lista", f);
+    lista.innerHTML = rp.filas.map(filaRp).join("");
+    $$(".rp-fila", lista).forEach(fila => {
+      const r = rp.filas[Number(fila.dataset.i)];
+      const sel = k => $(`[data-rp="${k}"]`, fila);
+      sel("imp").value = r.imp || "";
+      if (sel("imp").value !== (r.imp || "")) r.imp = "";
+      sel("bol").addEventListener("change", () => { r.bol = sel("bol").value; r.imp = ""; r.tipo = ""; r.sub = ""; pintarRp(); actualizar(); });
+      sel("imp").addEventListener("change", () => { r.imp = sel("imp").value; });
+      if (sel("tipo")) sel("tipo").addEventListener("change", () => { r.tipo = sel("tipo").value; r.sub = ""; sel("sub").innerHTML = htmlSub(r.tipo, ""); sel("sub").disabled = !r.tipo; });
+      if (sel("sub")) sel("sub").addEventListener("change", () => { r.sub = sel("sub").value; });
+      sel("pct").addEventListener("input", () => { r.pct = parseMonto(sel("pct").value) || 0; sumaRp(); });
+      $("[data-rp-x]", fila).addEventListener("click", () => {
+        if (rp.filas.length <= 2) return toast("Para repartir hacen falta al menos dos destinos. Para uno solo, tocá «Volver a un solo destino».", "error");
+        rp.filas.splice(Number(fila.dataset.i), 1); pintarRp(); actualizar();
+      });
+    });
+    sumaRp();
+  }
+  /* Montos de cada parte y control de que los porcentajes sumen 100. */
+  function sumaRp() {
+    if (!rp.activo) return;
+    const monto = parseMonto(q("monto").value) || 0;
+    $$(".rp-fila", f).forEach(fila => { const r = rp.filas[Number(fila.dataset.i)]; $('[data-rp="monto"]', fila).textContent = monto > 0 && r.pct > 0 ? fmtARS(monto * r.pct / 100, 2) : "—"; });
+    const suma = rp.filas.reduce((a, r) => a + (Number(r.pct) || 0), 0);
+    const el = $("#rp-suma", f);
+    el.textContent = Math.abs(suma - 100) <= 0.01 ? "· suman 100% ✓" : `· suman ${fmtPctTxt(suma)}%: tienen que sumar 100%`;
+    el.classList.toggle("rp-mal", Math.abs(suma - 100) > 0.01);
+  }
+  function activarRp(filas) {
+    rp.activo = true;
+    if (filas) rp.filas = filas;
+    else {
+      const actual = q("bolsillo").value;
+      const otro = bolsRep().find(b => b.id !== actual);
+      rp.filas = [
+        { bol: actual, pct: 50, imp: q("imp").value, tipo: q("tipocosto").value, sub: q("subcat").value },
+        { bol: otro ? otro.id : actual, pct: 50, imp: "", tipo: "", sub: "" }
+      ];
+    }
+    pintarRp(); actualizar();
   }
 
   /* ----- valores por defecto de cada tipo de pase ----- */
@@ -274,30 +348,36 @@ export function render(el, params) {
     const bol = q("bolsillo").value;
     const esGasto = tipo === "egreso" && clase === "gasto";
     const esVentaC = tipo === "ingreso" && (clase === "cobro" || clase === "anticipo");
+    const repartido = esGasto && rp.activo;
+    // Con reparto, los bloques de pago dependen de todos los destinos.
+    const bols = repartido ? rp.filas.map(r => r.bol) : [bol];
     const ver = {
       pase: tipo === "pase", gasto: esGasto, socio: M.pideSocio(tipo, clase), tasa: M.pideTasa(tipo, clase),
       tipocosto: esGasto && M.esBolsilloProyecto(bol), comprobante: esGasto || esVentaC, fiscal: esGasto,
-      iva: (esGasto && fiscal === "A") || esVentaC, recuperable: esGasto && bol === "MAGNA" && !q("fueradecaja").checked,
-      fueradecaja: esGasto && bol === "MAGNA",
+      iva: (esGasto && fiscal === "A") || esVentaC, recuperable: esGasto && bols.includes("MAGNA") && !q("fueradecaja").checked,
+      fueradecaja: esGasto && bols.includes("MAGNA"),
       perc: esGasto && (fiscal === "A" || fiscal === "B"), percIva: esGasto && fiscal === "A",
-      desglose: esGasto || esVentaC, pagosocio: esGasto && M.admitePrestamoSocio(bol)
+      desglose: esGasto || esVentaC, pagosocio: esGasto && bols.some(M.admitePrestamoSocio),
+      repartible: esGasto && !editando && !rp.activo && (admin || (permitidos || []).length > 1),
+      reparto: repartido, impunica: esGasto && !repartido
     };
     $$("[data-ver]", f).forEach(n => { n.hidden = !ver[n.dataset.ver]; });
     $$(".seg-tipo button", f).forEach(b => { const a = b.dataset.tipo === tipo; b.classList.toggle("activo", a); b.setAttribute("aria-checked", a); });
     $$("#f-fiscal button", f).forEach(b => { const a = b.dataset.fiscal === fiscal; b.classList.toggle("activo", a); b.setAttribute("aria-checked", a); });
     $("#l-clase", f).textContent = { egreso: "Tipo de egreso", ingreso: "Tipo de ingreso", pase: "Tipo de pase" }[tipo];
     $("#c-bolsillo", f).classList.toggle("campo-ancho-movil", tipo !== "pase");
+    $("#c-bolsillo", f).hidden = repartido;
     $("#l-bolsillo", f).textContent = tipo === "pase" ? "Sale de" : tipo === "ingreso" ? "Entra a" : esGasto ? "Asignar costo a" : "Sale de";
     $("#l-monto", f).textContent = esGasto ? "Monto total en pesos" : esVentaC ? "Monto cobrado en pesos" : "Monto en pesos";
     q("monto-hint").textContent = esGasto ? (fiscal === "A" || fiscal === "B" ? "Total de la factura: IVA, percepciones e impuestos internos incluidos." : "Lo que se pagó, total.") : esVentaC ? "Con IVA incluido." : "";
-    $("#f-pago-bol", f).textContent = M.esBolsilloProyecto(bol) ? "proyecto" : "bolsillo de Estructura";
+    $("#f-pago-bol", f).textContent = repartido ? "proyecto o a Estructura (en las partes que van ahí)" : M.esBolsilloProyecto(bol) ? "proyecto" : "bolsillo de Estructura";
     $("#c-pagadopor", f).hidden = !q("pagosocio").checked;
     $("#c-sinreint", f).hidden = !q("fueradecaja").checked;
     const hc = $("#hint-cert", f);
     if (hc) hc.hidden = !(esVentaC && !m0);
     $("#l-comprobante", f).innerHTML = esVentaC ? 'N° de factura <span class="opc">(opcional)</span>' : 'N° de comprobante <span class="opc">(opcional)</span>';
     q("concepto").placeholder = esGasto ? "Qué se compró o contrató" : esVentaC ? "Ej.: Certificado 1, agosto" : "Detalle";
-    q("guardar").textContent = solR ? "Aprobar con correcciones" : !admin ? (m0 ? "Enviar cambio para aprobación" : sol0 ? "Guardar corrección del pedido" : "Enviar para aprobación") : m0 ? "Guardar cambios" : esGasto ? "Guardar gasto" : tipo === "pase" ? "Guardar pase" : "Guardar ingreso";
+    q("guardar").textContent = solR ? "Aprobar con correcciones" : !admin ? (m0 ? "Enviar cambio para aprobación" : sol0 ? "Guardar corrección del pedido" : repartido ? `Enviar ${rp.filas.length} partes para aprobación` : "Enviar para aprobación") : m0 ? "Guardar cambios" : repartido ? `Guardar gasto repartido (${rp.filas.length} partes)` : esGasto ? "Guardar gasto" : tipo === "pase" ? "Guardar pase" : "Guardar ingreso";
     calcularIva();
   }
 
@@ -351,6 +431,7 @@ export function render(el, params) {
       eq.querySelector("b").textContent = "—";
       eq.querySelector("span").textContent = cot > 0 ? "" : "Falta la cotización";
     }
+    sumaRp();
     const dg = q("desglose");
     if (!dg.hidden) {
       dg.innerHTML = monto > 0
@@ -413,6 +494,7 @@ export function render(el, params) {
     ivaManual = st.alicuota !== "varias" && Math.abs(calc - st.ivaARS) > 1;
   }
   if (!m0 && tipo === "pase") defectosPase(q("clase").value);
+  if (pre && Array.isArray(pre.reparto) && pre.reparto.length > 1) activarRp(pre.reparto.map(r => ({ bol: r.bol || st.bolsillo, pct: Number(r.pct) || 0, imp: r.imp || "", tipo: r.tipo || "", sub: r.sub || "" })));
   actualizar();
   if (pre && pre.cotizacion) q("cot-hint").textContent = "Cotización tomada al leer la factura.";
   else if (solPrev && !m0) q("cot-hint").textContent = "Cotización del pedido.";
@@ -440,6 +522,18 @@ export function render(el, params) {
     actualizar();
   });
   q("destino").addEventListener("change", () => { bolManual = true; });
+  q("repartir").addEventListener("click", () => activarRp());
+  $("#rp-add", f).addEventListener("click", () => {
+    const suma = rp.filas.reduce((a, r) => a + (Number(r.pct) || 0), 0);
+    rp.filas.push({ bol: (bolsRep().find(b => !rp.filas.some(r => r.bol === b.id)) || bolsRep()[0]).id, pct: Math.max(0, Math.round((100 - suma) * 100) / 100), imp: "", tipo: "", sub: "" });
+    pintarRp(); actualizar();
+  });
+  $("#rp-uno", f).addEventListener("click", () => {
+    const r = rp.filas[0];
+    rp.activo = false;
+    if (r) { q("bolsillo").value = r.bol; opcionesImputacion(); q("imp").value = r.imp || ""; q("tipocosto").value = r.tipo || ""; opcionesSubcat(r.sub || ""); }
+    actualizar();
+  });
   q("fecha").addEventListener("change", () => buscarCot(false));
   q("buscar").addEventListener("click", () => buscarCot(true));
   q("cot").addEventListener("input", () => { cotManual = true; fuente = "manual"; q("cot-hint").className = "hint"; q("cot-hint").textContent = "Cotización cargada a mano."; equivalencia(); });
@@ -457,6 +551,13 @@ export function render(el, params) {
   f.addEventListener("submit", e => { e.preventDefault(); guardarForm(false); });
   if (!editando) enlazarBarraIA(el, () => q("bolsillo").value);
   if (q("otro")) q("otro").addEventListener("click", () => guardarForm(true));
+  const brp = $("#f-borrar-rp", f);
+  if (brp) brp.addEventListener("click", e => confirmar2(e.currentTarget, () => {
+    sucio = false;
+    [m0, ...otrasPartes].forEach(x => GS.borrarMovimiento(x, app.usuario.socio));
+    toast(`Reparto enviado a la papelera (${otrasPartes.length + 1} partes)`);
+    app.ir("movimientos");
+  }, "Tocá otra vez para borrar todas las partes"));
   if (q("borrar")) q("borrar").addEventListener("click", e => confirmar2(e.currentTarget, () => {
     sucio = false;
     if (!admin) {
@@ -476,6 +577,51 @@ export function render(el, params) {
     if (n) { n.classList.add("error"); n.focus(); }
     toast(msg, "error");
     return false;
+  }
+
+  /* Un gasto repartido se guarda como una parte por destino, con el mismo comprobante y un mismo id de reparto.
+     Monto, IVA, percepciones e impuestos internos se reparten por porcentaje; la última parte se lleva los centavos. */
+  function guardarReparto(d, otro) {
+    const n = rp.filas.length;
+    const gid = "rp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const r2 = v => Math.round(v * 100) / 100;
+    const partes = rp.filas.map(() => ({}));
+    ["montoARS", "ivaARS", "percIIBB", "percIVA", "percGan", "otrosTribARS", "noGravadoARS"].forEach(k => {
+      let acum = 0;
+      rp.filas.forEach((r, i) => { const v = i === n - 1 ? r2((Number(d[k]) || 0) - acum) : r2((Number(d[k]) || 0) * r.pct / 100); acum = r2(acum + v); partes[i][k] = v; });
+    });
+    const fueraSel = q("fueradecaja").checked, socioSR = q("sinreint").value;
+    const pagSel = q("pagosocio").checked ? q("pagadopor").value : "";
+    const ahora = new Date().toISOString();
+    const movs = rp.filas.map((r, i) => {
+      const esP = M.esBolsilloProyecto(r.bol), mag = r.bol === "MAGNA", fueraP = mag && fueraSel;
+      const x = Object.assign({}, d, partes[i], {
+        bolsillo: r.bol, imputacion: r.imp, tipoCosto: esP ? r.tipo : "", subcategoria: esP ? r.sub : "",
+        montoUSD: r2(partes[i].montoARS / d.cotizacion), alicuota: partes[i].ivaARS > 0 ? d.alicuota : 0,
+        fueraDeCaja: fueraP, pagoSinReintegro: fueraP ? socioSR : "", pagadoPor: M.admitePrestamoSocio(r.bol) ? pagSel : "",
+        recuperable: mag && !fueraP && q("recuperable").checked,
+        reparto: { id: gid, parte: i + 1, de: n, pct: r2(r.pct) }
+      });
+      delete x.id; delete x.demo;
+      return x;
+    });
+    if (!admin) {
+      movs.forEach(x => PER.proponer({ coleccion: "movimientos", accion: "alta", docId: null, datos: x }));
+      toast(`Gasto repartido en ${n} partes enviado para aprobación · ${fmtARS(d.montoARS)}`);
+    } else {
+      movs.forEach(x => {
+        x.creadoPor = app.usuario.socio; x.creadoEl = ahora;
+        const g = guardar("movimientos", x);
+        if (g && g.pagadoPor) GS.sincronizarPrestamo(g, app.usuario.socio);
+      });
+      if (d.proveedor && !S.proveedores.some(p => p.nombre.toLowerCase() === d.proveedor.toLowerCase())) guardar("proveedores", { nombre: d.proveedor, cuit: "", rubro: "", notas: "", creadoPor: app.usuario.socio });
+      toast(`Gasto repartido en ${n} partes · ${fmtARS(d.montoARS)} · ${fmtUSD(d.montoUSD)}`);
+    }
+    sucio = false;
+    if (otro) {
+      ["monto", "concepto", "comprobante", "iva", "notas", "percIIBB", "percIVA", "percGan", "otrosTrib", "noGravado"].forEach(id => { q(id).value = ""; });
+      rp.activo = false; ivaManual = false; actualizar(); q("monto").focus(); window.scrollTo({ top: 0, behavior: "smooth" });
+    } else app.ir(admin ? "movimientos" : "aprobaciones");
   }
 
   function guardarForm(otro) {
@@ -505,10 +651,26 @@ export function render(el, params) {
     if (ot.otrosTribARS < 0 || ot.noGravadoARS < 0) return marcarError("otrosTrib", "Los impuestos internos y lo no gravado no pueden ser negativos.");
     if (iva + perc + ot.otrosTribARS + ot.noGravadoARS >= monto) return marcarError("otrosTrib", "El IVA, las percepciones, los impuestos internos y lo no gravado tienen que sumar menos que el total.");
     if (esGasto && !q("proveedor").value.trim() && !q("concepto").value.trim()) return marcarError("concepto", "Poné el proveedor o el concepto.");
-    if (esGasto && !q("imp").value) return marcarError("imp", M.esBolsilloProyecto(bol) ? "Elegí a qué ítem, rubro o general se imputa." : "Elegí la categoría.");
-    if (esGasto && M.esBolsilloProyecto(bol) && !q("tipocosto").value) return marcarError("tipocosto", "Elegí la categoría del costo (mano de obra, materiales…).");
-    if (esGasto && M.esBolsilloProyecto(bol) && !q("subcat").value && M.subcategoriasDe(q("tipocosto").value).length) return marcarError("subcat", "Elegí la subcategoría.");
-    if (esGasto && q("pagosocio").checked && M.admitePrestamoSocio(bol) && !pagado) return marcarError("pagadopor", "Elegí qué socio lo pagó.");
+    const repartido = esGasto && rp.activo;
+    if (repartido) {
+      const errRp = msg => { toast(msg, "error"); $("#rp-lista", f).scrollIntoView({ block: "center", behavior: "smooth" }); return false; };
+      if (rp.filas.length < 2) return errRp("Para repartir hacen falta al menos dos destinos.");
+      if (rp.filas.some(r => !(r.pct > 0))) return errRp("Cada destino necesita un porcentaje mayor que cero.");
+      const suma = rp.filas.reduce((a, r) => a + r.pct, 0);
+      if (Math.abs(suma - 100) > 0.01) return errRp(`Los porcentajes suman ${fmtPctTxt(suma)}%: tienen que sumar 100%.`);
+      for (const r of rp.filas) {
+        const nom = M.nombreBolsillo(r.bol);
+        if (!r.imp) return errRp(M.esBolsilloProyecto(r.bol) ? `Elegí a qué se imputa la parte de ${nom}.` : `Elegí la categoría de la parte de ${nom}.`);
+        if (M.esBolsilloProyecto(r.bol) && !r.tipo) return errRp(`Elegí la categoría del costo de la parte de ${nom}.`);
+        if (M.esBolsilloProyecto(r.bol) && !r.sub && M.subcategoriasDe(r.tipo).length) return errRp(`Elegí la subcategoría de la parte de ${nom}.`);
+      }
+      if (q("pagosocio").checked && rp.filas.some(r => M.admitePrestamoSocio(r.bol)) && !q("pagadopor").value) return marcarError("pagadopor", "Elegí qué socio lo pagó.");
+    } else {
+      if (esGasto && !q("imp").value) return marcarError("imp", M.esBolsilloProyecto(bol) ? "Elegí a qué ítem, rubro o general se imputa." : "Elegí la categoría.");
+      if (esGasto && M.esBolsilloProyecto(bol) && !q("tipocosto").value) return marcarError("tipocosto", "Elegí la categoría del costo (mano de obra, materiales…).");
+      if (esGasto && M.esBolsilloProyecto(bol) && !q("subcat").value && M.subcategoriasDe(q("tipocosto").value).length) return marcarError("subcat", "Elegí la subcategoría.");
+      if (esGasto && q("pagosocio").checked && M.admitePrestamoSocio(bol) && !pagado) return marcarError("pagadopor", "Elegí qué socio lo pagó.");
+    }
     if (M.pideSocio(tipo, clase) && !q("socio").value) return marcarError("socio", "Elegí el socio.");
     const tasa = M.pideTasa(tipo, clase) && q("tasa").value.trim() ? parseMonto(q("tasa").value) : null;
     if (tasa != null && (isNaN(tasa) || tasa < 0 || tasa > 200)) return marcarError("tasa", "Revisá la tasa: es un % anual en dólares.");
@@ -536,6 +698,7 @@ export function render(el, params) {
       socio: M.pideSocio(tipo, clase) ? q("socio").value : "",
       tasa
     });
+    if (repartido) return guardarReparto(d, otro);
     if (solR) {
       ["creadoPor", "creadoEl", "modificadoPor", "aprobadoPor", "aprobadoEl", "solicitud", "id", "modificado"].forEach(k => { if (!m0) delete d[k]; });
       PER.aprobar(solR, d);
