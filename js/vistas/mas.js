@@ -5,6 +5,7 @@ import { estado } from "../db.js";
 import { app } from "../contexto.js";
 import { esc, cabecera, ICONOS } from "../ui.js";
 import { vencidasTodas } from "../certificados.js";
+import { textoVersion } from "../version.js";
 import * as PER from "../permisos.js";
 import { contador } from "./aprobaciones.js";
 
@@ -39,6 +40,6 @@ export function render(el) {
       <button type="button" id="mas-salir">${ICONOS.salir}<span>Salir</span></button>
     </nav>
   </section>
-  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · Versión 14</p>`;
+  <p class="chico mute" style="text-align:center;margin-top:18px">MICA — Minería Integral Catamarca · ${esc(textoVersion())}</p>`;
   el.querySelector("#mas-salir").addEventListener("click", () => app.salir());
 }
