@@ -403,3 +403,9 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
   - En la lectura con IA, una factura de varios renglones se puede pasar al formulario como reparto («Repartir en el formulario»).
 - Las reglas de Firestore no cambian.
 
+## Novedades de la versión 15
+
+- **Versión y fecha a la vista:** «Versión 15 · 03/11/2026» abajo del menú en la computadora, en «Más» en el celular y en la pantalla de entrada. Sale de `js/version.js` (`VERSION = { numero, fecha }`), que se actualiza en cada entrega junto con la caché de `sw.js`.
+- **Las actualizaciones se ven enseguida:** el service worker pide los archivos con `cache: "no-cache"`, así el navegador siempre pregunta al servidor si hay una versión nueva. Antes podía seguir usando, hasta 10 minutos, la copia que guarda GitHub Pages.
+- Las reglas de Firestore no cambian.
+

@@ -629,3 +629,6 @@ body:not(.rol-admin) .solo-admin { display: none !important; }
   .rp-fila .rp-vacio { display: none; }
   .rp-fila [data-rp-x] { grid-column: 3; grid-row: 1; }
 }
+
+/* ---------- v15: versión visible ---------- */
+.lateral-version { padding: 0 16px 12px; font-size: 11px; color: var(--gris); letter-spacing: .01em; }
