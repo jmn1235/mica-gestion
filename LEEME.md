@@ -392,3 +392,14 @@ La marca MICA se usa como ícono de la pestaña del navegador (`img/favicon.ico`
 - **CUIT siempre con guiones** en la planilla (`formatoCuit`), también el de Magna en el subtítulo.
 - Las reglas de Firestore no cambian.
 
+## Novedades de la versión 14
+
+- **Gasto repartido entre varios destinos** (Cargar → «Repartir entre varios destinos»): proyecto, MICA · Estructura y Magna, en cualquier combinación, con un porcentaje y una imputación o categoría por destino (los porcentajes suman 100%).
+  - Se guarda como **una parte por destino**, cada una un gasto común con `reparto: { id, parte, de, pct }` y el mismo comprobante. Saldos, resultados, IVA y planilla no cambian de lógica, y la planilla junta las partes en una fila por comprobante.
+  - Monto, IVA, percepciones, impuestos internos y no gravado se reparten por porcentaje; la última parte se lleva el redondeo.
+  - Pago de un socio con su plata: préstamo en las partes de proyecto o de Estructura; «sin reintegro» en la de Magna.
+  - Los operativos reparten entre lo que tienen habilitado; cada parte llega como un pedido aparte.
+  - Editar una parte cambia solo esa parte. «Borrar todo el reparto» manda todas las partes a la papelera.
+  - En la lectura con IA, una factura de varios renglones se puede pasar al formulario como reparto («Repartir en el formulario»).
+- Las reglas de Firestore no cambian.
+

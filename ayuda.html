@@ -571,6 +571,15 @@ details > :last-child { margin-bottom: 14px; }
         <li><strong>Planilla completa para la contadora:</strong> la de siempre, con Río Colorado, la columna «Origen» y la hoja «IVA por origen».</li>
         <li><strong>Una fila por factura:</strong> en las dos planillas, si una factura se cargó en varios renglones (por ejemplo, hierro y cemento a rubros distintos), en «Compras con factura» se suma en una sola fila, con la cantidad de renglones. El detalle queda en la hoja «Compras · detalle». Las facturas sin número no se pueden juntar: cargales el número.</li>
       </ul>
+      <h3>Un gasto repartido entre varios destinos</h3>
+      <ul>
+        <li>Cuando una factura es en parte de un proyecto y en parte de Estructura o de Magna (o de dos proyectos), en <span class="ui">Cargar</span> tocá <span class="ui">Repartir entre varios destinos</span>, debajo de «Asignar costo a».</li>
+        <li>Para cada destino elegí el porcentaje y su imputación o categoría. Los porcentajes tienen que sumar 100%; la app muestra el monto de cada parte.</li>
+        <li>Cada parte se guarda como un gasto aparte, con el mismo comprobante. El IVA, las percepciones y los impuestos internos se reparten en el mismo porcentaje, y la última parte se lleva los centavos para que el total dé exacto.</li>
+        <li>Si lo pagó un socio con su plata: en las partes de un proyecto o de Estructura queda como préstamo suyo; en la de Magna, como «sin reintegro».</li>
+        <li>En Movimientos cada parte dice «Repartido · parte 1 de 2». Al editar una parte, los cambios valen solo para esa parte; para borrar el gasto entero está <span class="ui">Borrar todo el reparto</span>. En la planilla de la contadora la factura sale en una sola fila.</li>
+        <li>Al leer con IA una factura de varios renglones, <span class="ui">Repartir en el formulario</span> la lleva al formulario con un destino por renglón.</li>
+      </ul>
       <h3>Compras propias de Magna (combustible, corralón)</h3>
       <ul>
         <li>Se cargan en <span class="ui">Magna · Julio</span>, con la categoría <strong>Combustible</strong>, <strong>Materiales de corralón</strong> u <strong>Otros</strong>. Las puede cargar Julio o un operativo habilitado para Magna (queda pendiente hasta que Julio lo aprueba).</li>

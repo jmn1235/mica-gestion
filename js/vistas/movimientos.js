@@ -148,6 +148,7 @@ function filaMov(m, ref) {
   const tags = [];
   if (m.tipo === "pase") tags.push(`<span class="tag tag-borde">Pase</span>`);
   if (m.cotizacionFuente === "aprox") tags.push(`<span class="tag tag-alerta" title="Se usó la cotización de otro día">Cotización a revisar</span>`);
+  if (m.reparto) tags.push(`<span class="tag tag-borde" title="Gasto repartido entre varios destinos">Repartido · parte ${m.reparto.parte} de ${m.reparto.de} (${String(m.reparto.pct).replace(".", ",")}%)</span>`);
   if (m.fueraDeCaja) tags.push(`<span class="tag tag-borde" title="Lo pagó con su plata y no se le devuelve: no pasa por el banco">Pagó ${esc(M.socioNombre(M.quienPagoSinReintegro(m)))} · sin reintegro</span>`);
   if (m.pagadoPor) tags.push(`<span class="tag tag-borde" title="Quedó como préstamo del socio">Pagó ${esc(M.socioNombre(m.pagadoPor))}</span>`);
   if (m.operacion) tags.push(`<span class="tag tag-borde" title="Registrada desde la ficha del socio">Devolución detallada</span>`);

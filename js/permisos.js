@@ -164,7 +164,7 @@ export const ESTADOS = { pendiente: "Pendiente", aprobada: "Aprobada", rechazada
 
 export function resumen(col, d) {
   if (!d) return "";
-  if (col === "movimientos") return `${M.tituloMov(d)} · ${fmtARS(d.montoARS)} · ${M.nombreBolsillo(d.bolsillo)} · ${fmtFecha(d.fecha)}`;
+  if (col === "movimientos") return `${M.tituloMov(d)} · ${fmtARS(d.montoARS)} · ${M.nombreBolsillo(d.bolsillo)} · ${fmtFecha(d.fecha)}${d.reparto ? ` · parte ${d.reparto.parte} de ${d.reparto.de} de un reparto (${String(d.reparto.pct).replace(".", ",")}%)` : ""}`;
   if (col === "avances") return `Avance físico de ${mesLabel(d.mes)} · ${(M.proyecto(d.proyecto) || {}).nombre || d.proyecto}`;
   return col;
 }
